@@ -21,9 +21,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 
 app.use(express.json());
+
+// Health check for Fly.io and container orchestrators
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 // Serve client dist in production or single-port mode
 const distPath = path.resolve(process.cwd(), 'dist');
@@ -567,6 +572,6 @@ wss.on('connection', async (ws: WebSocket, req) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`[BlockBlast Arena] Server running on http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[BlockBlast Arena] Server running on http://0.0.0.0:${PORT}`);
 });
