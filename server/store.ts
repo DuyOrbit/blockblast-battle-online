@@ -53,9 +53,35 @@ export class InMemoryPlayerStore implements IPlayerStore {
     return this.players.get(id) || null;
   }
 
+  private pruneInactivePlayers(): void {
+    const now = Date.now();
+    const halfHourAgo = now - 30 * 60 * 1000;
+    for (const [id, player] of this.players.entries()) {
+      // Protect default seeded bots
+      if (id.startsWith('bot_')) continue;
+      // Prune inactive sessions with 0 matches older than 30 mins
+      if (player.matchesPlayed === 0 && player.createdAt < halfHourAgo) {
+        this.players.delete(id);
+      }
+    }
+    // If still over 500, prune oldest players who haven't played much
+    if (this.players.size > 500) {
+      const sorted = Array.from(this.players.entries())
+        .filter(([id]) => !id.startsWith('bot_'))
+        .sort((a, b) => a[1].createdAt - b[1].createdAt);
+      const toRemove = sorted.slice(0, this.players.size - 400);
+      for (const [id] of toRemove) {
+        this.players.delete(id);
+      }
+    }
+  }
+
   public async createOrUpdatePlayer(id: string, name: string, elo = DEFAULT_ELO): Promise<StoredPlayer> {
     let existing = this.players.get(id);
     if (!existing) {
+      if (this.players.size > 500) {
+        this.pruneInactivePlayers();
+      }
       existing = {
         id,
         name: name || `CyberRunner_${id.slice(0, 4)}`,

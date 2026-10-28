@@ -21,7 +21,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+
+interface CustomWebSocket extends WebSocket {
+  isAlive?: boolean;
+}
 
 app.use(express.json());
 
@@ -346,12 +350,46 @@ setInterval(() => {
   }
 }, 1000);
 
+// 30s Heartbeat to detect dead sockets, terminate zombie TCP connections and clean RAM
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((client) => {
+    const ws = client as CustomWebSocket;
+    if (ws.isAlive === false) {
+      ws.terminate();
+      return;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+
+  // Stale active matches sweep
+  for (const [matchId, match] of activeMatches.entries()) {
+    if (match.timeRemaining <= -10 || match.status === 'FINISHED') {
+      if (match.timer) clearInterval(match.timer);
+      activeMatches.delete(matchId);
+      playerToMatchMap.delete(match.playerA.info.id);
+      playerToMatchMap.delete(match.playerB.info.id);
+    }
+  }
+}, 30000);
+
 // WebSocket connection management
-wss.on('connection', async (ws: WebSocket, req) => {
+wss.on('connection', async (rawWs: WebSocket, req) => {
+  const ws = rawWs as CustomWebSocket;
+  ws.isAlive = true;
+
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
+
   // Generate random session player ID or parse from query
   const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
   const requestedId = url.searchParams.get('playerId');
   const playerId = requestedId || `p_${Math.random().toString(36).substring(2, 9)}`;
+
+  ws.on('error', (err) => {
+    console.warn(`[WebSocket] Socket error for ${playerId}:`, err.message);
+  });
 
   clientSockets.set(playerId, ws);
 

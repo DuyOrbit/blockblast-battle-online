@@ -24,11 +24,80 @@ export interface CustomRoom {
   boardB: BoardState | null;
   timeRemaining: number;
   timer: NodeJS.Timeout | null;
+  lastActivity: number;
 }
 
 export class RoomManager {
   private rooms = new Map<string, CustomRoom>();
   private playerToRoom = new Map<string, string>(); // playerId -> roomCode
+  private sweepInterval: NodeJS.Timeout | null = null;
+
+  constructor() {
+    this.startPeriodicSweep();
+  }
+
+  private startPeriodicSweep() {
+    this.sweepInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [code, room] of this.rooms.entries()) {
+        // If room is inactive for > 15m or finished & idle > 5m, prune it
+        const isIdleTimeout = (now - room.lastActivity > 15 * 60 * 1000) ||
+          (room.status === 'FINISHED' && now - room.lastActivity > 5 * 60 * 1000);
+
+        if (isIdleTimeout) {
+          this.closeRoom(room);
+          continue;
+        }
+
+        // Clean dead spectator sockets
+        for (const [specId, spec] of room.spectators.entries()) {
+          if (spec.ws.readyState !== WebSocket.OPEN) {
+            room.spectators.delete(specId);
+            this.playerToRoom.delete(specId);
+          }
+        }
+
+        // If host disconnected
+        if (room.host.ws.readyState !== WebSocket.OPEN) {
+          if (room.timer) {
+            clearInterval(room.timer);
+            room.timer = null;
+          }
+          if (room.guest && room.guest.ws.readyState === WebSocket.OPEN) {
+            room.host = room.guest;
+            room.guest = null;
+            room.status = 'LOBBY';
+            room.lastActivity = now;
+            this.broadcastRoomUpdate(room);
+          } else {
+            this.closeRoom(room);
+          }
+        } else if (room.guest && room.guest.ws.readyState !== WebSocket.OPEN) {
+          this.playerToRoom.delete(room.guest.info.id);
+          room.guest = null;
+          if (room.status === 'PLAYING') {
+            this.finishRoomMatch(room, 'SURRENDER', room.host.info.id);
+          }
+          this.broadcastRoomUpdate(room);
+        }
+      }
+    }, 30000);
+  }
+
+  public closeRoom(room: CustomRoom) {
+    if (room.timer) {
+      clearInterval(room.timer);
+      room.timer = null;
+    }
+    this.rooms.delete(room.code);
+    this.playerToRoom.delete(room.host.info.id);
+    if (room.guest) {
+      this.playerToRoom.delete(room.guest.info.id);
+    }
+    for (const specId of room.spectators.keys()) {
+      this.playerToRoom.delete(specId);
+    }
+  }
 
   private sendMessage(ws: WebSocket | undefined, msg: ServerMessage) {
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -66,7 +135,8 @@ export class RoomManager {
       boardA: null,
       boardB: null,
       timeRemaining: MATCH_DURATION_SECONDS,
-      timer: null
+      timer: null,
+      lastActivity: Date.now()
     };
 
     this.rooms.set(code, room);
@@ -94,6 +164,7 @@ export class RoomManager {
       return { success: false, error: 'Phòng không tồn tại hoặc đã bị đóng' };
     }
 
+    room.lastActivity = Date.now();
     this.removePlayer(player.id);
     this.playerToRoom.set(player.id, normalizedCode);
 
@@ -139,6 +210,7 @@ export class RoomManager {
     }
 
     room.status = 'PLAYING';
+    room.lastActivity = Date.now();
     room.seed = Math.floor(Math.random() * 1000000);
     room.matchId = `room_match_${Date.now()}_${room.code}`;
     room.timeRemaining = MATCH_DURATION_SECONDS;
@@ -191,6 +263,7 @@ export class RoomManager {
     y: number
   ) {
     if (room.status !== 'PLAYING' || !room.boardA || !room.boardB || !room.guest) return;
+    room.lastActivity = Date.now();
 
     const isHost = room.host.info.id === playerId;
     const currentSide = isHost ? room.host : room.guest;
@@ -459,10 +532,11 @@ export class RoomManager {
         room.host = room.guest;
         room.guest = null;
         room.status = 'LOBBY';
+        room.lastActivity = Date.now();
         this.broadcastRoomUpdate(room);
       } else {
         // Close room
-        this.rooms.delete(code);
+        this.closeRoom(room);
       }
     }
   }

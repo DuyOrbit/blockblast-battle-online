@@ -347,8 +347,12 @@ class BlockBlastApp {
     // Result Modal Buttons
     document.getElementById('btnPlayAgain')!.addEventListener('click', () => {
       this.resultModal.classList.add('hidden');
-      if (this.currentRoomCode && this.isHostOfRoom) {
-        this.sendPacket({ type: 'START_ROOM_MATCH' });
+      if (this.currentRoomCode) {
+        if (this.isHostOfRoom) {
+          this.sendPacket({ type: 'START_ROOM_MATCH' });
+        } else {
+          this.roomModal.classList.remove('hidden');
+        }
       } else {
         this.joinQueue();
       }
@@ -405,7 +409,7 @@ class BlockBlastApp {
     } else if (mode === 'PVP') {
       this.btnModeSolo.classList.remove('active');
       this.btnModePvP.classList.add('active');
-      this.btnFindMatch.style.display = 'inline-block';
+      this.btnFindMatch.style.display = this.inMatch ? 'none' : 'inline-block';
       this.spectatorBanner.style.display = 'none';
       this.pieceDock.style.display = 'flex';
 
@@ -724,6 +728,12 @@ class BlockBlastApp {
         this.isHostOfRoom = msg.isHost;
         this.myRoleInRoom = msg.myRole;
 
+        // Switch panel to lobby view so Guest also sees the room lobby
+        this.createRoomPanel.style.display = 'block';
+        this.joinRoomPanel.style.display = 'none';
+        this.tabCreateRoom.classList.add('active');
+        this.tabJoinRoom.classList.remove('active');
+
         this.roomHostName.textContent = msg.host.name + (msg.isHost ? ' (Bạn)' : '');
         this.roomGuestName.textContent = msg.guest
           ? msg.guest.name + (!msg.isHost && msg.myRole === 'PLAYER' ? ' (Bạn)' : '')
@@ -731,18 +741,23 @@ class BlockBlastApp {
 
         this.roomSpectatorListText.textContent = `${msg.spectators.length} người`;
 
-        // Update Start button state for Host
+        // Update Start button state for Host vs Guest
         if (msg.isHost) {
           this.btnStartCustomMatch.style.display = 'block';
           if (msg.guest) {
             this.btnStartCustomMatch.removeAttribute('disabled');
             this.btnStartCustomMatch.style.opacity = '1.0';
+            this.btnStartCustomMatch.textContent = '🚀 BẮT ĐẦU TRẬN ĐẤU';
           } else {
             this.btnStartCustomMatch.setAttribute('disabled', 'true');
             this.btnStartCustomMatch.style.opacity = '0.5';
+            this.btnStartCustomMatch.textContent = '⏳ ĐANG CHỜ BẠN VÀO...';
           }
         } else {
-          this.btnStartCustomMatch.style.display = 'none';
+          this.btnStartCustomMatch.style.display = 'block';
+          this.btnStartCustomMatch.setAttribute('disabled', 'true');
+          this.btnStartCustomMatch.style.opacity = '0.7';
+          this.btnStartCustomMatch.textContent = '⏳ CHỜ CHỦ PHÒNG BẮT ĐẦU...';
         }
 
         if (msg.status === 'PLAYING') {
@@ -750,9 +765,13 @@ class BlockBlastApp {
           if (msg.myRole === 'SPECTATOR') {
             this.switchMode('SPECTATOR');
             this.spectatorCountBadge.textContent = `${msg.spectators.length} khán giả`;
+          } else {
+            this.switchMode('PVP');
           }
-        } else if (msg.status === 'LOBBY' && this.currentMode === 'SPECTATOR') {
-          this.roomModal.classList.remove('hidden');
+        } else if (msg.status === 'LOBBY') {
+          if (this.currentMode === 'SPECTATOR') {
+            this.roomModal.classList.remove('hidden');
+          }
         }
         break;
 
@@ -798,6 +817,23 @@ class BlockBlastApp {
 
         this.switchMode('PVP');
 
+        // Immediately initialize the board using msg.yourPieces so player sees active dock immediately
+        if (msg.yourPieces) {
+          const emptyGrid = Array.from({ length: 8 }, () => Array(8).fill(null));
+          this.pvpLocalBoard = {
+            playerId: this.myPlayerId,
+            grid: emptyGrid,
+            score: 0,
+            comboStreak: 0,
+            activePieces: msg.yourPieces.map((p, idx) => ({ piece: p, index: idx, placed: false })),
+            isKnockedOut: false,
+            lastClearedLines: 0,
+            round: 0
+          };
+          this.inputManager.setGrid(emptyGrid);
+          this.renderDockPieces(this.pvpLocalBoard.activePieces);
+        }
+
         this.oppPlayerName.textContent = msg.opponent.name;
         this.oppPlayerElo.textContent = `${msg.opponent.elo} ELO`;
         this.oppScore.textContent = '0';
@@ -809,7 +845,10 @@ class BlockBlastApp {
         break;
 
       case 'STATE_UPDATE':
-        if (this.currentMode !== 'PVP') return;
+        // If received during match, ensure mode is PVP
+        if (this.currentMode !== 'PVP') {
+          this.switchMode('PVP');
+        }
         this.pvpLocalBoard = msg.localBoard;
         this.pvpOpponentBoard = msg.opponentBoard;
         this.inputManager.setGrid(msg.localBoard.grid);
