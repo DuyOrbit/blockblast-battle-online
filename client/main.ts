@@ -46,6 +46,7 @@ class BlockBlastApp {
   private currentRoomCode: string | null = null;
   private isHostOfRoom: boolean = false;
   private myRoleInRoom: 'PLAYER' | 'SPECTATOR' = 'PLAYER';
+  private pendingGarbageCount: number = 0;
   private spectatorABoard: BoardState | null = null;
   private spectatorBBoard: BoardState | null = null;
 
@@ -371,6 +372,13 @@ class BlockBlastApp {
         }
       });
     });
+
+    // Tactile micro-clicks for buttons and interactive cards
+    document.querySelectorAll('.btn-cyber, .btn-cyber-outline, .mode-btn, .dock-slot, .tab-btn').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        sound.playHover();
+      });
+    });
   }
 
   private openRoomModal(initialTab: 'CREATE' | 'JOIN' = 'CREATE') {
@@ -464,8 +472,22 @@ class BlockBlastApp {
   private handleSoloPlacePiece(pieceIndex: number, x: number, y: number) {
     if (!this.soloBoard || this.soloBoard.isKnockedOut) return;
 
+    const piece = this.soloBoard.activePieces[pieceIndex]?.piece;
     const result = GameEngine.applyMove(this.soloBoard, pieceIndex, x, y, this.soloSeed);
     if (!result.success) return;
+
+    // Register placed cells for squash & stretch bounce animation
+    if (piece) {
+      const placedCells: { x: number; y: number; color?: string }[] = [];
+      for (let r = 0; r < piece.height; r++) {
+        for (let c = 0; c < piece.width; c++) {
+          if (piece.matrix[r][c] === 1) {
+            placedCells.push({ x: x + c, y: y + r, color: piece.color });
+          }
+        }
+      }
+      this.renderer.registerPlacedCells(placedCells);
+    }
 
     sound.playPlace();
 
@@ -840,8 +862,7 @@ class BlockBlastApp {
         this.localScore.textContent = '0';
 
         this.updateTimerDisplay(msg.timeRemaining);
-        this.renderer.addFloatingText('TRẬN ĐẤU BẮT ĐẦU!', 220, 200, '#10b981', 30);
-        sound.playPickup();
+        this.triggerCountdownAnimation();
         break;
 
       case 'STATE_UPDATE':
@@ -872,22 +893,33 @@ class BlockBlastApp {
 
         this.updateTimerDisplay(msg.timeRemaining);
         this.renderDockPieces(msg.localBoard.activePieces);
+
+        // Update garbage gauge according to active garbage blocks
+        let garbageBlocksCount = 0;
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (msg.localBoard.grid[r][c]?.isGarbage) {
+              garbageBlocksCount++;
+            }
+          }
+        }
+        this.updateGarbageGauge(0, garbageBlocksCount);
         break;
 
       case 'LINE_CLEARED':
         if (this.currentMode === 'SPECTATOR') {
           sound.playLineClear(msg.comboStreak);
           if (msg.count >= 2) {
-            sound.playMultiClear(msg.count);
-            this.renderer.triggerScreenShake(msg.count * 3);
+            sound.playMultiClear(msg.count, msg.comboStreak);
+            this.renderer.triggerScreenShake(msg.count * 4);
           }
           this.renderer.spawnLineClearParticles(msg.rows, msg.cols);
           this.renderer.addFloatingText(msg.count >= 2 ? `DOUBLE! +${msg.pointsEarned}` : `+${msg.pointsEarned}`, 220, 180, '#38bdf8', 22);
         } else if (this.currentMode === 'PVP' && msg.playerId === this.myPlayerId) {
           sound.playLineClear(msg.comboStreak);
           if (msg.count >= 2) {
-            sound.playMultiClear(msg.count);
-            this.renderer.triggerScreenShake(msg.count * 4);
+            sound.playMultiClear(msg.count, msg.comboStreak);
+            this.renderer.triggerScreenShake(msg.count * 5);
           }
           this.renderer.spawnLineClearParticles(msg.rows, msg.cols);
 
@@ -895,7 +927,7 @@ class BlockBlastApp {
           this.renderer.addFloatingText(clearTitle, 220, 180, '#38bdf8', 24);
 
           if (msg.comboStreak >= 2) {
-            this.renderer.addFloatingText(`COMBO x${msg.comboStreak}!`, 220, 220, '#f59e0b', 26);
+            this.renderer.addFloatingText(`COMBO x${msg.comboStreak}!`, 220, 220, '#f59e0b', 28);
           }
         }
         break;
@@ -903,16 +935,21 @@ class BlockBlastApp {
       case 'ATTACK_EVENT':
         if (this.currentMode === 'SPECTATOR') {
           sound.playAttackAlert();
+          this.renderer.spawnAttackProjectile(true, msg.count);
           this.showAttackBanner(`⚔️ PHẢN ĐÒN: ${msg.count} GẠCH ĐÁ!`);
         } else if (this.currentMode === 'PVP') {
           if (msg.toPlayerId === this.myPlayerId) {
-            sound.playAttackAlert();
-            this.renderer.triggerScreenShake(7);
+            sound.playAttackWhoosh(false);
+            this.renderer.spawnAttackProjectile(false, msg.count);
+            this.renderer.triggerScreenShake(9);
             this.showAttackBanner(`⚠️ ĐỐI THỦ BẮN SANG ${msg.count} GẠCH ĐÁ!`);
-            this.renderer.addFloatingText(`BỊ TẤN CÔNG! +${msg.count} GẠCH`, 220, 160, '#f43f5e', 24);
+            this.renderer.addFloatingText(`BỊ TẤN CÔNG! +${msg.count} GẠCH`, 220, 160, '#f43f5e', 26);
+            this.updateGarbageGauge(msg.count);
           } else {
+            sound.playAttackWhoosh(true);
+            this.renderer.spawnAttackProjectile(true, msg.count);
             this.showAttackBanner(`⚔️ BẮN THÀNH CÔNG ${msg.count} GẠCH ĐÁ SANG ĐỐI THỦ!`);
-            this.renderer.addFloatingText(`PHẢN ĐÒN! x${msg.count}`, 220, 160, '#10b981', 24);
+            this.renderer.addFloatingText(`PHẢN ĐÒN! x${msg.count}`, 220, 160, '#10b981', 26);
           }
         }
         break;
@@ -1006,6 +1043,18 @@ class BlockBlastApp {
     if (this.currentMode === 'SOLO') {
       this.handleSoloPlacePiece(pieceIndex, x, y);
     } else if (this.currentMode === 'PVP') {
+      const piece = this.pvpLocalBoard?.activePieces[pieceIndex]?.piece;
+      if (piece) {
+        const placedCells: { x: number; y: number; color?: string }[] = [];
+        for (let r = 0; r < piece.height; r++) {
+          for (let c = 0; c < piece.width; c++) {
+            if (piece.matrix[r][c] === 1) {
+              placedCells.push({ x: x + c, y: y + r, color: piece.color });
+            }
+          }
+        }
+        this.renderer.registerPlacedCells(placedCells);
+      }
       sound.playPlace();
       this.sendPacket({
         type: 'PLACE_PIECE',
@@ -1079,6 +1128,61 @@ class BlockBlastApp {
     setTimeout(() => {
       this.attackBanner.style.display = 'none';
     }, 2800);
+  }
+
+  private updateGarbageGauge(added: number = 0, exactCount?: number) {
+    if (exactCount !== undefined) {
+      this.pendingGarbageCount = exactCount;
+    } else {
+      this.pendingGarbageCount = Math.max(0, Math.min(this.pendingGarbageCount + added, 10));
+    }
+
+    const fill = document.getElementById('garbageGaugeFill');
+    const gauge = document.getElementById('incomingGarbageGauge');
+    if (!fill || !gauge) return;
+
+    if (this.currentMode === 'PVP' && this.inMatch) {
+      gauge.style.display = 'flex';
+    } else {
+      gauge.style.display = 'none';
+      return;
+    }
+
+    const percent = Math.min(100, this.pendingGarbageCount * 12.5);
+    fill.style.height = `${percent}%`;
+
+    if (this.pendingGarbageCount > 0) {
+      fill.classList.add('active');
+    } else {
+      fill.classList.remove('active');
+    }
+  }
+
+  private triggerCountdownAnimation() {
+    const overlay = document.getElementById('matchCountdownOverlay');
+    const title = document.getElementById('countdownTitle');
+    const subtitle = document.getElementById('countdownSubtitle');
+    if (!overlay || !title) return;
+
+    overlay.classList.remove('hidden');
+    title.textContent = 'READY';
+    title.style.color = '#fbbf24';
+    title.style.textShadow = '0 0 35px rgba(251, 191, 36, 0.9)';
+    if (subtitle) subtitle.textContent = 'CHUẨN BỊ CHIẾN ĐẤU';
+    sound.playCountdownBeep(false);
+
+    setTimeout(() => {
+      title.textContent = 'GO!';
+      title.style.color = '#10b981';
+      title.style.textShadow = '0 0 45px rgba(16, 185, 129, 1.0)';
+      if (subtitle) subtitle.textContent = 'TRẬN ĐẤU BẮT ĐẦU!';
+      sound.playCountdownBeep(true);
+      this.renderer.triggerScreenShake(12);
+
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+      }, 650);
+    }, 850);
   }
 
   private startRenderLoop() {

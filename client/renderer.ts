@@ -33,6 +33,28 @@ export interface Particle {
   alpha: number;
 }
 
+export interface Shockwave {
+  type: 'row' | 'col';
+  index: number;
+  startTime: number;
+  duration: number;
+  color: string;
+}
+
+export interface AttackProjectile {
+  id: string;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  targetX: number;
+  targetY: number;
+  progress: number;
+  color: string;
+  speed: number;
+  trail: { x: number; y: number; alpha: number }[];
+}
+
 export class CanvasRenderer {
   private mainCanvas: HTMLCanvasElement;
   private mainCtx: CanvasRenderingContext2D;
@@ -41,7 +63,12 @@ export class CanvasRenderer {
 
   private particles: Particle[] = [];
   private floatingTexts: FloatingText[] = [];
+  private shockwaves: Shockwave[] = [];
+  private attackProjectiles: AttackProjectile[] = [];
+  private placedAnimations = new Map<string, { startTime: number; color: string }>();
+
   private shakeIntensity: number = 0;
+  private shakeAngle: number = 0;
   private lastTime: number = performance.now();
 
   // Grid sizing cache
@@ -73,8 +100,9 @@ export class CanvasRenderer {
     this.mainCtx.scale(dpr, dpr);
 
     const padding = 16;
-    const available = Math.min(mainWidth, mainHeight) - padding * 2;
-    this.mainCellSize = Math.floor(available / BOARD_SIZE);
+    const availableSize = Math.min(mainWidth, mainHeight) - padding * 2;
+    this.mainCellSize = Math.floor(availableSize / BOARD_SIZE);
+
     this.mainGridOffset = {
       x: Math.floor((mainWidth - this.mainCellSize * BOARD_SIZE) / 2),
       y: Math.floor((mainHeight - this.mainCellSize * BOARD_SIZE) / 2)
@@ -95,8 +123,25 @@ export class CanvasRenderer {
     this.oppCellSize = Math.floor(oppAvailable / BOARD_SIZE);
   }
 
+  /**
+   * Register newly placed block positions for juicy squash & stretch animation
+   */
+  public registerPlacedCells(cells: { x: number; y: number; color?: string }[]) {
+    const now = performance.now();
+    for (const c of cells) {
+      this.placedAnimations.set(`${c.y},${c.x}`, {
+        startTime: now,
+        color: c.color || '#38bdf8'
+      });
+    }
+  }
+
+  /**
+   * Trigger screen shake with micro-rotational angle
+   */
   public triggerScreenShake(intensity = 8) {
-    this.shakeIntensity = Math.min(this.shakeIntensity + intensity, 22);
+    this.shakeIntensity = Math.min(this.shakeIntensity + intensity, 25);
+    this.shakeAngle = (Math.random() - 0.5) * (this.shakeIntensity * 0.003);
   }
 
   public addFloatingText(text: string, x: number, y: number, color = '#38bdf8', fontSize = 22) {
@@ -115,33 +160,86 @@ export class CanvasRenderer {
     });
   }
 
+  /**
+   * Spawn shockwave laser line and velocity sparks
+   */
   public spawnLineClearParticles(rows: number[], cols: number[]) {
     const cs = this.mainCellSize;
     const ox = this.mainGridOffset.x;
     const oy = this.mainGridOffset.y;
+    const now = performance.now();
 
-    // Rows
+    // Spawn Laser Shockwaves
     for (const r of rows) {
+      this.shockwaves.push({
+        type: 'row',
+        index: r,
+        startTime: now,
+        duration: 260,
+        color: '#38bdf8'
+      });
+
       const y = oy + r * cs + cs / 2;
-      for (let i = 0; i < 28; i++) {
+      for (let i = 0; i < 35; i++) {
         const x = ox + Math.random() * (cs * BOARD_SIZE);
-        this.createSparkParticle(x, y, ['#06b6d4', '#38bdf8', '#e0f2fe', '#a855f7']);
+        this.createSparkParticle(x, y, ['#06b6d4', '#38bdf8', '#ffffff', '#a855f7']);
       }
     }
 
-    // Cols
     for (const c of cols) {
+      this.shockwaves.push({
+        type: 'col',
+        index: c,
+        startTime: now,
+        duration: 260,
+        color: '#f59e0b'
+      });
+
       const x = ox + c * cs + cs / 2;
-      for (let i = 0; i < 28; i++) {
+      for (let i = 0; i < 35; i++) {
         const y = oy + Math.random() * (cs * BOARD_SIZE);
-        this.createSparkParticle(x, y, ['#f59e0b', '#fbbf24', '#fef08a', '#10b981']);
+        this.createSparkParticle(x, y, ['#f59e0b', '#fbbf24', '#ffffff', '#10b981']);
       }
+    }
+  }
+
+  /**
+   * Spawn PvP plasma projectiles flying between boards
+   */
+  public spawnAttackProjectile(outgoing: boolean, count: number) {
+    const width = this.mainCanvas.width / (window.devicePixelRatio || 1);
+    const height = this.mainCanvas.height / (window.devicePixelRatio || 1);
+    const centerX = this.mainGridOffset.x + (this.mainCellSize * BOARD_SIZE) / 2;
+    const centerY = this.mainGridOffset.y + (this.mainCellSize * BOARD_SIZE) / 2;
+
+    const projectileCount = Math.min(count, 5);
+
+    for (let i = 0; i < projectileCount; i++) {
+      const delay = i * 0.08;
+      const startX = outgoing ? centerX + (Math.random() - 0.5) * 60 : width + 30;
+      const startY = outgoing ? centerY + (Math.random() - 0.5) * 60 : 60 + Math.random() * 80;
+      const targetX = outgoing ? width + 50 : centerX + (Math.random() - 0.5) * 80;
+      const targetY = outgoing ? 60 + Math.random() * 80 : centerY + (Math.random() - 0.5) * 80;
+
+      this.attackProjectiles.push({
+        id: Math.random().toString(),
+        startX,
+        startY,
+        currentX: startX,
+        currentY: startY,
+        targetX,
+        targetY,
+        progress: -delay,
+        color: outgoing ? '#10b981' : '#f43f5e',
+        speed: 0.035,
+        trail: []
+      });
     }
   }
 
   private createSparkParticle(x: number, y: number, colorPalette: string[]) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random() * 4.5 + 1.5;
+    const speed = Math.random() * 5.5 + 2.0;
     const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
 
     this.particles.push({
@@ -150,7 +248,7 @@ export class CanvasRenderer {
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 0.5,
       color,
-      size: Math.random() * 3.5 + 1.5,
+      size: Math.random() * 4.0 + 1.8,
       life: 0,
       maxLife: Math.floor(Math.random() * 25) + 35,
       alpha: 1.0
@@ -187,14 +285,18 @@ export class CanvasRenderer {
     ctx.save();
     ctx.clearRect(0, 0, width, height);
 
-    // Screen Shake Offset
+    // Dynamic Screen Shake with rotational tilt
     if (this.shakeIntensity > 0.05) {
       const sx = (Math.random() - 0.5) * this.shakeIntensity;
       const sy = (Math.random() - 0.5) * this.shakeIntensity;
-      ctx.translate(sx, sy);
-      this.shakeIntensity *= 0.9;
+      ctx.translate(width / 2, height / 2);
+      ctx.rotate(this.shakeAngle);
+      ctx.translate(-width / 2 + sx, -height / 2 + sy);
+      this.shakeIntensity *= 0.88;
+      this.shakeAngle *= 0.88;
     } else {
       this.shakeIntensity = 0;
+      this.shakeAngle = 0;
     }
 
     const ox = this.mainGridOffset.x;
@@ -202,8 +304,8 @@ export class CanvasRenderer {
     const cs = this.mainCellSize;
     const boardPx = cs * BOARD_SIZE;
 
-    // Outer glow container
-    ctx.fillStyle = '#090d16';
+    // Outer glow container with chamfered cyber styling
+    ctx.fillStyle = '#080c18';
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 2;
     this.roundRect(ctx, ox - 6, oy - 6, boardPx + 12, boardPx + 12, 12);
@@ -216,26 +318,27 @@ export class CanvasRenderer {
         const x = ox + c * cs;
         const y = oy + r * cs;
 
-        ctx.fillStyle = (r + c) % 2 === 0 ? '#0f172a' : '#131c31';
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#0d1527' : '#111b33';
         this.roundRect(ctx, x + 2, y + 2, cs - 4, cs - 4, 6);
         ctx.fill();
 
-        // Subtle inner grid border
-        ctx.strokeStyle = 'rgba(30, 41, 59, 0.6)';
+        ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
         ctx.lineWidth = 1;
         ctx.stroke();
       }
     }
 
-    // Render Placed Blocks
+    // Render Placed Blocks with Squash & Stretch bounce
+    let occupiedCellsCount = 0;
     if (board && board.grid) {
       for (let r = 0; r < BOARD_SIZE; r++) {
         for (let c = 0; c < BOARD_SIZE; c++) {
           const cell = board.grid[r][c];
           if (cell) {
+            occupiedCellsCount++;
             const x = ox + c * cs;
             const y = oy + r * cs;
-            this.drawBlock(ctx, x, y, cs, cell);
+            this.drawBlock(ctx, x, y, cs, cell, r, c);
           }
         }
       }
@@ -246,16 +349,27 @@ export class CanvasRenderer {
       this.drawGhostPreview(ctx, ghost, ox, oy, cs);
     }
 
+    // Render Shockwaves across cleared lines
+    this.renderShockwaves(ctx, ox, oy, cs, boardPx);
+
+    // Render Attack Projectiles
+    this.renderAttackProjectiles(ctx);
+
     // Render Particles
     this.renderParticles(ctx);
 
     // Render Floating Text
     this.renderFloatingText(ctx);
 
+    // Render Danger Zone Alert Vignette if board is > 70% full
+    if (occupiedCellsCount >= 46) {
+      this.renderDangerVignette(ctx, ox, oy, boardPx, (occupiedCellsCount - 45) / 19);
+    }
+
     ctx.restore();
   }
 
-  private drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, cell: GridCell) {
+  private drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, cell: GridCell, r?: number, c?: number) {
     const pad = 3;
     const bx = x + pad;
     const by = y + pad;
@@ -263,6 +377,30 @@ export class CanvasRenderer {
     const radius = 6;
 
     ctx.save();
+
+    // Check placed squash & stretch animation
+    let isAnimated = false;
+    let animProgress = 0;
+    if (r !== undefined && c !== undefined) {
+      const animKey = `${r},${c}`;
+      const anim = this.placedAnimations.get(animKey);
+      if (anim) {
+        const elapsed = performance.now() - anim.startTime;
+        if (elapsed < 200) {
+          isAnimated = true;
+          animProgress = elapsed / 200;
+          // Juicy overshoot bounce
+          const scale = 1 + Math.sin(animProgress * Math.PI) * 0.16;
+          const cx = bx + bs / 2;
+          const cy = by + bs / 2;
+          ctx.translate(cx, cy);
+          ctx.scale(scale, scale);
+          ctx.translate(-cx, -cy);
+        } else {
+          this.placedAnimations.delete(animKey);
+        }
+      }
+    }
 
     if (cell.isGarbage) {
       // Stone garbage block styling
@@ -296,15 +434,15 @@ export class CanvasRenderer {
     } else {
       // Vibrant Neon Block
       ctx.shadowColor = cell.glowColor || cell.color;
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.fillStyle = cell.color;
       this.roundRect(ctx, bx, by, bs, bs, radius);
       ctx.fill();
 
       // Inner bevel specular highlight
       const grad = ctx.createLinearGradient(bx, by, bx, by + bs);
-      grad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-      grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.05)');
+      grad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+      grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.08)');
       grad.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
 
       ctx.fillStyle = grad;
@@ -312,9 +450,17 @@ export class CanvasRenderer {
       ctx.fill();
 
       // Border highlight
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.lineWidth = 1;
       ctx.stroke();
+    }
+
+    // Flash highlight overlay for newly placed blocks
+    if (isAnimated) {
+      const flashAlpha = Math.max(0, (1 - animProgress) * 0.7);
+      ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
+      this.roundRect(ctx, bx, by, bs, bs, radius);
+      ctx.fill();
     }
 
     ctx.restore();
@@ -342,16 +488,16 @@ export class CanvasRenderer {
             const s = cs - 6;
 
             if (isValid) {
-              ctx.fillStyle = piece.glowColor || 'rgba(6, 182, 212, 0.4)';
+              ctx.fillStyle = piece.glowColor || 'rgba(6, 182, 212, 0.45)';
               ctx.strokeStyle = piece.color;
               ctx.shadowColor = piece.color;
-              ctx.shadowBlur = 10;
+              ctx.shadowBlur = 12;
               ctx.lineWidth = 2;
             } else {
-              ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-              ctx.strokeStyle = '#ef4444';
-              ctx.shadowColor = '#ef4444';
-              ctx.shadowBlur = 6;
+              ctx.fillStyle = 'rgba(244, 63, 94, 0.25)';
+              ctx.strokeStyle = '#f43f5e';
+              ctx.shadowColor = '#f43f5e';
+              ctx.shadowBlur = 8;
               ctx.lineWidth = 1.5;
             }
 
@@ -365,44 +511,146 @@ export class CanvasRenderer {
     ctx.restore();
   }
 
-  private renderOpponent(board: OpponentBoardState | null) {
+  private renderShockwaves(ctx: CanvasRenderingContext2D, ox: number, oy: number, cs: number, boardPx: number) {
+    const now = performance.now();
+    for (let i = this.shockwaves.length - 1; i >= 0; i--) {
+      const sw = this.shockwaves[i];
+      const elapsed = now - sw.startTime;
+      if (elapsed >= sw.duration) {
+        this.shockwaves.splice(i, 1);
+        continue;
+      }
+
+      const p = elapsed / sw.duration;
+      const alpha = (1 - p) * 0.85;
+      const beamSpread = Math.sin(p * Math.PI) * (cs * 0.8);
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = sw.color;
+      ctx.shadowBlur = 20;
+
+      if (sw.type === 'row') {
+        const centerY = oy + sw.index * cs + cs / 2;
+        const grad = ctx.createLinearGradient(ox, centerY - beamSpread / 2, ox, centerY + beamSpread / 2);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        grad.addColorStop(0.5, sw.color);
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(ox, centerY - beamSpread / 2, boardPx, beamSpread);
+      } else {
+        const centerX = ox + sw.index * cs + cs / 2;
+        const grad = ctx.createLinearGradient(centerX - beamSpread / 2, oy, centerX + beamSpread / 2, oy);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        grad.addColorStop(0.5, sw.color);
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(centerX - beamSpread / 2, oy, beamSpread, boardPx);
+      }
+
+      ctx.restore();
+    }
+  }
+
+  private renderAttackProjectiles(ctx: CanvasRenderingContext2D) {
+    for (let i = this.attackProjectiles.length - 1; i >= 0; i--) {
+      const proj = this.attackProjectiles[i];
+      proj.progress += proj.speed;
+
+      if (proj.progress < 0) continue; // Waiting for delay
+
+      if (proj.progress >= 1.0) {
+        // Spawn impact burst at destination
+        for (let k = 0; k < 16; k++) {
+          this.createSparkParticle(proj.targetX, proj.targetY, [proj.color, '#ffffff']);
+        }
+        this.attackProjectiles.splice(i, 1);
+        continue;
+      }
+
+      // Bezier curve interpolation with arch
+      const t = proj.progress;
+      const arcHeight = -60 * Math.sin(t * Math.PI);
+      proj.currentX = (1 - t) * proj.startX + t * proj.targetX;
+      proj.currentY = (1 - t) * proj.startY + t * proj.targetY + arcHeight;
+
+      // Update trail
+      proj.trail.push({ x: proj.currentX, y: proj.currentY, alpha: 1.0 });
+      if (proj.trail.length > 8) proj.trail.shift();
+
+      ctx.save();
+
+      // Draw trail
+      for (let j = 0; j < proj.trail.length; j++) {
+        const pt = proj.trail[j];
+        const trAlpha = (j / proj.trail.length) * 0.7;
+        ctx.fillStyle = proj.color;
+        ctx.globalAlpha = trAlpha;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, (j / proj.trail.length) * 5 + 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw blazing core head
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = proj.color;
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(proj.currentX, proj.currentY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+
+  private renderDangerVignette(ctx: CanvasRenderingContext2D, ox: number, oy: number, boardPx: number, intensity: number) {
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.008);
+    const alpha = Math.min(intensity * 0.65 * pulse, 0.7);
+
+    ctx.save();
+    ctx.strokeStyle = `rgba(244, 63, 94, ${alpha})`;
+    ctx.lineWidth = 5;
+    ctx.shadowColor = '#f43f5e';
+    ctx.shadowBlur = 20;
+    this.roundRect(ctx, ox - 4, oy - 4, boardPx + 8, boardPx + 8, 12);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private renderOpponent(opponent: OpponentBoardState | null) {
     const ctx = this.oppCtx;
     const width = this.oppCanvas.width / (window.devicePixelRatio || 1);
     const height = this.oppCanvas.height / (window.devicePixelRatio || 1);
 
-    ctx.save();
     ctx.clearRect(0, 0, width, height);
 
+    const pad = 6;
     const cs = this.oppCellSize;
-    const boardPx = cs * BOARD_SIZE;
-    const ox = Math.floor((width - boardPx) / 2);
-    const oy = Math.floor((height - boardPx) / 2);
+    const ox = Math.floor((width - cs * BOARD_SIZE) / 2);
+    const oy = Math.floor((height - cs * BOARD_SIZE) / 2);
 
-    // Board outline
-    ctx.fillStyle = '#0b0f19';
+    ctx.save();
+    // Backdrop
+    ctx.fillStyle = '#080c18';
     ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 1.5;
-    this.roundRect(ctx, ox - 3, oy - 3, boardPx + 6, boardPx + 6, 6);
+    ctx.lineWidth = 1;
+    this.roundRect(ctx, ox - 2, oy - 2, cs * BOARD_SIZE + 4, cs * BOARD_SIZE + 4, 6);
     ctx.fill();
     ctx.stroke();
 
-    // Opponent Grid Cells
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
         const x = ox + c * cs;
         const y = oy + r * cs;
 
-        ctx.fillStyle = (r + c) % 2 === 0 ? '#0f172a' : '#141e33';
-        this.roundRect(ctx, x + 1, y + 1, cs - 2, cs - 2, 3);
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#0f172a' : '#131c31';
+        this.roundRect(ctx, x + 1, y + 1, cs - 2, cs - 2, 2);
         ctx.fill();
 
-        if (board && board.grid && board.grid[r][c]) {
-          const cell = board.grid[r][c]!;
-          if (cell.isGarbage) {
-            ctx.fillStyle = '#475569';
-          } else {
-            ctx.fillStyle = cell.color;
-          }
+        if (opponent && opponent.grid && opponent.grid[r][c]) {
+          const cell = opponent.grid[r][c]!;
+          ctx.fillStyle = cell.isGarbage ? '#475569' : cell.color;
           this.roundRect(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 3);
           ctx.fill();
         }
@@ -418,7 +666,7 @@ export class CanvasRenderer {
       ctx.globalAlpha = p.alpha;
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
@@ -432,7 +680,7 @@ export class CanvasRenderer {
       ctx.globalAlpha = ft.opacity;
       ctx.fillStyle = ft.color;
       ctx.shadowColor = ft.glowColor;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.font = `900 ${ft.fontSize}px Orbitron, sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(ft.text, ft.x, ft.y);

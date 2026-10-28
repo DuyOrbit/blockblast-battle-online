@@ -150,9 +150,23 @@
 
     <!-- Boards Arena Grid -->
     <div class="boards-grid">
-      <!-- Main Board (Interactive Canvas) -->
+      <!-- Main Board (Interactive Canvas Stage) -->
       <div class="main-board-wrapper">
-        <canvas id="mainBoardCanvas" class="main-canvas" width="440" height="440"></canvas>
+        <div class="canvas-stage">
+          <!-- Incoming Garbage Danger Gauge (TETR.IO Style) -->
+          <div id="incomingGarbageGauge" class="incoming-garbage-gauge">
+            <div id="garbageGaugeFill" class="garbage-gauge-fill"></div>
+            <div class="garbage-gauge-label font-cyber">WARN</div>
+          </div>
+
+          <canvas id="mainBoardCanvas" class="main-canvas" width="440" height="440"></canvas>
+
+          <!-- Match Start Countdown Overlay (READY... GO!) -->
+          <div id="matchCountdownOverlay" class="countdown-overlay hidden">
+            <div id="countdownTitle" class="countdown-title font-cyber">READY</div>
+            <div id="countdownSubtitle" class="countdown-subtitle font-cyber">BẮT ĐẦU TRẬN ĐẤU</div>
+          </div>
+        </div>
       </div>
 
       <!-- Side Panel: Opponent Board (PvP Mode) -->
