@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#070a12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlockBlast" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>BlockBlast Arena - Chơi Đơn & 1v1 PvP Real-Time Block Blast</title>
+  <meta name="description" content="Chơi Block Blast trực tuyến: Chế độ chơi đơn tính điểm kỷ lục và đấu trường 1v1 PvP thời gian thực với hạt neon, combo và bảng xếp hạng." />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="logo-container">
+      <div class="logo-badge">Arena</div>
+      <h1 class="font-cyber" style="font-size: 18px; letter-spacing: 1px; color: #38bdf8;">
+        BLOCK<span style="color: #f59e0b;">BLAST</span> ONLINE
+      </h1>
+    </div>
+
+    <!-- Mode Switcher -->
+    <div class="mode-switcher">
+      <button id="btnModeSolo" class="mode-btn active font-cyber">🎮 CHƠI ĐƠN</button>
+      <button id="btnModePvP" class="mode-btn font-cyber">⚔️ ĐẤU 1V1 PVP</button>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button id="btnOpenRoomModal" class="btn-cyber font-cyber" style="padding: 6px 14px; font-size: 12px; background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);">
+        👥 PHÒNG BẠN BÈ
+      </button>
+
+      <button id="btnOpenLeaderboard" class="btn-cyber-outline font-cyber" style="padding: 6px 12px; font-size: 12px; color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
+        🏆 XẾP HẠNG
+      </button>
+
+      <div id="userProfile" style="display: flex; align-items: center; gap: 6px;">
+        <span id="headerPlayerName" style="font-weight: 600; font-size: 13px; color: #cbd5e1;">Player</span>
+        <span id="headerPlayerElo" class="elo-tag font-cyber">1000 ELO</span>
+      </div>
+
+      <button id="btnHowToPlay" class="btn-icon" title="Hướng dẫn chơi">?</button>
+      <button id="btnToggleSound" class="btn-icon" title="Bật/Tắt âm thanh">🔊</button>
+      <button id="btnFindMatch" class="btn-cyber font-cyber" style="padding: 7px 14px; font-size: 12px; display: none;">
+        TÌM TRẬN 1V1
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Game Arena -->
+  <main class="arena-container">
+    <!-- Spectator Live Banner -->
+    <div id="spectatorBanner" class="cyber-card" style="display: none; padding: 10px 18px; margin-bottom: 6px; background: rgba(168, 85, 247, 0.15); border-color: #a855f7; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span class="font-cyber" style="color: #ec4899; font-weight: 800; font-size: 13px;">👁️ CHẾ ĐỘ XEM TRỰC TIẾP (SPECTATING)</span>
+        <span id="spectatorCountBadge" style="font-size: 12px; color: #cbd5e1; background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 4px;">1 khán giả</span>
+      </div>
+      <button id="btnLeaveSpectator" class="btn-cyber-outline font-cyber" style="padding: 5px 12px; font-size: 11px; border-color: #f43f5e; color: #fda4af;">
+        RỜI PHÒNG XEM
+      </button>
+    </div>
+
+    <!-- Battle HUD (PvP Mode) -->
+    <div id="pvpHud" class="battle-hud cyber-card" style="display: none;">
+      <!-- Player Panel (Local) -->
+      <div class="player-panel">
+        <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(6, 182, 212, 0.2); border: 1px solid #06b6d4; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+          🎮
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span id="localPlayerName" style="font-weight: 700; font-size: 15px;">Bạn</span>
+            <span id="localPlayerElo" class="elo-tag font-cyber">1000</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span id="localScore" class="score-display font-cyber">0</span>
+            <span id="localComboBadge" style="display: none; font-size: 11px; font-weight: 800; color: #f59e0b; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; padding: 1px 6px; border-radius: 4px;">
+              COMBO x1
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Match Timer Box -->
+      <div class="match-timer-box">
+        <span style="font-size: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 1px;">THỜI GIAN CÒN LẠI</span>
+        <div id="matchTimer" class="match-timer font-cyber">03:00</div>
+      </div>
+
+      <!-- Opponent Panel -->
+      <div class="player-panel opponent">
+        <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+          🤖
+        </div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 6px; justify-content: flex-end;">
+            <span id="oppPlayerName" style="font-weight: 700; font-size: 15px;">Đang đợi...</span>
+            <span id="oppPlayerElo" class="elo-tag font-cyber">----</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 8px; justify-content: flex-end;">
+            <span id="oppScore" class="score-display font-cyber" style="color: #a855f7; text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);">0</span>
+            <span id="oppComboBadge" style="display: none; font-size: 11px; font-weight: 800; color: #f43f5e; background: rgba(244, 63, 94, 0.15); border: 1px solid #f43f5e; padding: 1px 6px; border-radius: 4px;">
+              COMBO x1
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Solo HUD (Solo Mode) -->
+    <div id="soloHud" class="battle-hud cyber-card">
+      <!-- Current Score -->
+      <div class="player-panel">
+        <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(6, 182, 212, 0.2); border: 1px solid #06b6d4; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+          ⭐
+        </div>
+        <div>
+          <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Điểm Hiện Tại</span>
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span id="soloScoreDisplay" class="score-display font-cyber">0</span>
+            <span id="soloComboBadge" style="display: none; font-size: 11px; font-weight: 800; color: #f59e0b; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; padding: 1px 6px; border-radius: 4px;">
+              COMBO x1
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Best High Score -->
+      <div class="match-timer-box" style="border-color: rgba(251, 191, 36, 0.3);">
+        <span style="font-size: 10px; font-weight: 700; color: #fbbf24; letter-spacing: 1px;">KỶ LỤC CỦA BẠN</span>
+        <div id="soloHighScoreDisplay" class="font-cyber" style="font-size: 26px; font-weight: 900; color: #fbbf24;">0</div>
+      </div>
+
+      <!-- Lines Cleared -->
+      <div class="player-panel opponent" style="justify-content: flex-end;">
+        <div>
+          <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Số Dòng Đã Ăn</span>
+          <div class="score-display font-cyber" id="soloLinesDisplay" style="color: #10b981; text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);">
+            0
+          </div>
+        </div>
+        <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+          ⚡
+        </div>
+      </div>
+    </div>
+
+    <!-- Boards Arena Grid -->
+    <div class="boards-grid">
+      <!-- Main Board (Interactive Canvas) -->
+      <div class="main-board-wrapper">
+        <canvas id="mainBoardCanvas" class="main-canvas" width="440" height="440"></canvas>
+      </div>
+
+      <!-- Side Panel: Opponent Board (PvP Mode) -->
+      <div id="pvpSidePanel" class="side-panel" style="display: none;">
+        <div class="opp-board-wrapper cyber-card">
+          <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: #94a3b8;">
+            <span>BẢNG ĐỐI THỦ</span>
+            <span id="oppLiveStatus" style="color: #10b981;">● TRỰC TIẾP</span>
+          </div>
+          <canvas id="oppBoardCanvas" class="opp-canvas" width="200" height="200"></canvas>
+        </div>
+
+        <!-- Attack Notification Banner -->
+        <div id="attackBanner" class="attack-alert-banner font-cyber">
+          ⚠️ GẠCH TẤN CÔNG ĐANG ĐẾN!
+        </div>
+
+        <!-- Emote Panel -->
+        <div class="cyber-card" style="padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center;">
+          <span style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase;">Cảm xúc</span>
+          <div class="emote-bar">
+            <button class="emote-btn" data-emote="🔥">🔥</button>
+            <button class="emote-btn" data-emote="😎">😎</button>
+            <button class="emote-btn" data-emote="💀">💀</button>
+            <button class="emote-btn" data-emote="💥">💥</button>
+            <button class="emote-btn" data-emote="⚡">⚡</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side Panel: Solo Info & Stats (Solo Mode) -->
+      <div id="soloSidePanel" class="side-panel">
+        <div class="cyber-card" style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="font-size: 12px; font-weight: 800; color: #38bdf8; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+            THỐNG KÊ LƯỢT CHƠI
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; color: #94a3b8;">Combo dài nhất:</span>
+            <span id="soloSideMaxCombo" class="font-cyber" style="color: #f59e0b; font-weight: 800;">x0</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; color: #94a3b8;">Dòng phá hủy:</span>
+            <span id="soloSideLines" class="font-cyber" style="color: #10b981; font-weight: 800;">0</span>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 13px; color: #94a3b8;">Mục tiêu top 1:</span>
+            <span id="soloTargetScore" class="font-cyber" style="color: #fbbf24; font-weight: 800;">5,480</span>
+          </div>
+
+          <div style="margin-top: 8px;">
+            <button id="btnRestartSolo" class="btn-cyber-outline font-cyber" style="width: 100%; padding: 10px; font-size: 12px; color: #38bdf8; border-color: rgba(6, 182, 212, 0.4);">
+              🔄 CHƠI LẠI TỪ ĐẦU
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Help Card -->
+        <div class="cyber-card" style="padding: 14px; font-size: 12px; line-height: 1.5; color: #94a3b8;">
+          <span style="color: #38bdf8; font-weight: 700;">💡 Mẹo chơi:</span> Ăn nhiều hàng cùng lúc hoặc ăn liên tục ở các lượt kế tiếp để kích hoạt <strong style="color: #f59e0b;">Combo Nhân Điểm</strong> cực khủng!
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Pieces Dock -->
+    <div class="cyber-card" style="margin-top: auto;">
+      <div id="pieceDock" class="dock-wrapper">
+        <div class="dock-slot" data-index="0"></div>
+        <div class="dock-slot" data-index="1"></div>
+        <div class="dock-slot" data-index="2"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Leaderboard Modal -->
+  <div id="leaderboardModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card cyber-card-glow" style="max-width: 580px;">
+      <h2 class="font-cyber" style="color: #fbbf24; font-size: 22px; letter-spacing: 1.5px;">
+        🏆 BẢNG XẾP HẠNG ANH HÙNG
+      </h2>
+
+      <!-- Leaderboard Tabs -->
+      <div class="tabs-nav">
+        <button id="tabLeaderboardSolo" class="tab-btn active font-cyber">🎮 CHƠI ĐƠN (ĐIỂM CAO)</button>
+        <button id="tabLeaderboardPvP" class="tab-btn font-cyber">⚔️ ĐẤU HẠNG (ELO)</button>
+      </div>
+
+      <!-- Scrollable Table -->
+      <div class="leaderboard-scroll">
+        <table class="leaderboard-table">
+          <thead>
+            <tr id="leaderboardThead">
+              <th style="width: 50px;">HẠNG</th>
+              <th>NGƯỜI CHƠI</th>
+              <th>ĐIỂM SỐ</th>
+              <th>MAX COMBO</th>
+              <th>SỐ DÒNG</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardTbody">
+            <tr>
+              <td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">Đang tải dữ liệu xếp hạng...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+        <button id="btnCloseLeaderboard" class="btn-cyber-outline">ĐÓNG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Solo Game Over Modal -->
+  <div id="soloGameOverModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card cyber-card-glow">
+      <h2 class="font-cyber" style="color: #f43f5e; font-size: 26px; letter-spacing: 2px;">TRÒ CHƠI KẾT THÚC</h2>
+      <p style="font-size: 13px; color: #94a3b8;">Không còn vị trí hợp lệ nào để đặt 3 khối gạch tiếp theo!</p>
+
+      <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.2);">
+        <span style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Điểm số đạt được:</span>
+        <div id="soloFinalScore" class="font-cyber" style="font-size: 36px; color: #38bdf8; font-weight: 900; margin: 4px 0;">
+          0
+        </div>
+        <div id="soloRecordBadge" style="display: none; font-size: 12px; font-weight: 800; color: #fbbf24; background: rgba(251, 191, 36, 0.2); border: 1px solid #fbbf24; padding: 4px 10px; border-radius: 6px; display: inline-block;">
+          🎉 KỶ LỤC MỚI CỦA BẠN!
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; text-align: left;">
+        <label for="soloPlayerNameInput" style="font-size: 12px; color: #cbd5e1; font-weight: 600;">Lưu thành tích vào Bảng Xếp Hạng:</label>
+        <div style="display: flex; gap: 8px;">
+          <input id="soloPlayerNameInput" class="cyber-input" placeholder="Nhập biệt danh của bạn" maxlength="20" />
+          <button id="btnSubmitSoloScore" class="btn-cyber font-cyber" style="white-space: nowrap; font-size: 12px; padding: 10px 16px;">
+            LƯU ĐIỂM
+          </button>
+        </div>
+        <div id="soloSubmitMsg" style="font-size: 12px; color: #10b981; display: none;">✅ Đã ghi danh vào bảng xếp hạng!</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button id="btnSoloPlayAgain" class="btn-cyber font-cyber" style="flex: 1;">CHƠI LẠI NGAY</button>
+        <button id="btnSoloViewLeaderboard" class="btn-cyber-outline font-cyber" style="flex: 1;">XEM BẢNG XẾP HẠNG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Matchmaking Modal (PvP Mode) -->
+  <div id="queueModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card cyber-card-glow">
+      <h2 class="font-cyber" style="color: #38bdf8; font-size: 20px; letter-spacing: 1.5px;">TÌM ĐỐI THỦ 1V1</h2>
+      <div class="radar-box">
+        <div class="radar-sweep"></div>
+      </div>
+      <p style="font-size: 14px; color: #94a3b8;">Đang tìm đối thủ có mức Elo tương đương...</p>
+      
+      <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.2); display: flex; justify-content: space-around;">
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 700;">THỜI GIAN ĐỢI</div>
+          <div id="queueTimerText" class="font-cyber" style="font-size: 18px; color: #fbbf24;">00:00</div>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: #64748b; font-weight: 700;">PHẠM VI ELO</div>
+          <div id="queueRadiusText" class="font-cyber" style="font-size: 18px; color: #38bdf8;">±150</div>
+        </div>
+      </div>
+
+      <p style="font-size: 11px; color: #64748b;">
+        * Sau 15 giây nếu không có người chơi thật, Bot AI sẽ tự động khiêu chiến với bạn.
+      </p>
+
+      <button id="btnCancelQueue" class="btn-cyber-outline">HỦY TÌM TRẬN</button>
+    </div>
+  </div>
+
+  <!-- Match Result Modal (PvP Mode) -->
+  <div id="resultModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card cyber-card-glow">
+      <h2 id="resultTitle" class="font-cyber" style="font-size: 28px; letter-spacing: 2px;">VICTORY</h2>
+      <p id="resultSubtitle" style="font-size: 14px; color: #94a3b8;">Knockout</p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0;">
+        <div style="background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); padding: 14px; border-radius: 10px;">
+          <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">ĐIỂM CỦA BẠN</div>
+          <div id="resultYourScore" class="font-cyber" style="font-size: 24px; color: #38bdf8;">0</div>
+        </div>
+        <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); padding: 14px; border-radius: 10px;">
+          <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">ĐIỂM ĐỐI THỦ</div>
+          <div id="resultOppScore" class="font-cyber" style="font-size: 24px; color: #a855f7;">0</div>
+        </div>
+      </div>
+
+      <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, 0.2);">
+        <span style="font-size: 12px; color: #94a3b8; font-weight: 700;">THAY ĐỔI RATING:</span>
+        <div id="resultEloText" class="font-cyber" style="font-size: 20px; font-weight: 900; margin-top: 4px;">
+          1000 ➔ 1024 (+24 ELO)
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 8px;">
+        <button id="btnPlayAgain" class="btn-cyber font-cyber" style="flex: 1;">TÌM TRẬN MỚI</button>
+        <button id="btnCloseResult" class="btn-cyber-outline" style="flex: 1;">ĐÓNG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How to Play Modal -->
+  <div id="helpModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card" style="text-align: left;">
+      <h2 class="font-cyber" style="color: #38bdf8; font-size: 20px; text-align: center;">HƯỚNG DẪN LUẬT CHƠI</h2>
+      
+      <div style="font-size: 13px; line-height: 1.6; color: #cbd5e1; display: flex; flex-direction: column; gap: 10px;">
+        <div>
+          <strong style="color: #38bdf8;">1. Chế độ Chơi Đơn (Classic):</strong>
+          Kéo hoặc nhấn để đặt 3 khối gạch vào bảng 8x8. Xếp kín hàng ngang hoặc cột dọc để xóa hàng và ghi điểm. Trò chơi kết thúc khi không còn ô trống nào vừa với 3 khối gạch tiếp theo!
+        </div>
+        <div>
+          <strong style="color: #10b981;">2. Chế độ Đấu 1v1 PvP:</strong>
+          Hai người chơi nhận cùng bộ gạch giống hệt nhau (Fair RNG Seed) và có 3 phút thi đấu!
+        </div>
+        <div>
+          <strong style="color: #f59e0b;">3. Cơ chế Phản Đòn (Gạch Đá Tấn Công):</strong>
+          Khi ăn 2+ hàng cùng lúc hoặc duy trì chuỗi Combo >= 2, bạn sẽ bắn <strong>Gạch Đá Rắn</strong> sang bảng đối thủ với đồng hồ đếm ngược 2 lượt!
+        </div>
+        <div>
+          <strong style="color: #f43f5e;">4. Điều kiện Thắng / Thua:</strong>
+          • <strong>Knockout (KO):</strong> Đối thủ không còn ô trống để đặt khối gạch nào trong 3 khối gạch hiện tại -> Bạn thắng ngay lập tức!<br />
+          • <strong>Hết giờ (3:00):</strong> Người nào có tổng điểm cao hơn sẽ giành chiến thắng và nhận điểm xếp hạng Elo!
+        </div>
+      </div>
+
+      <button id="btnCloseHelp" class="btn-cyber-outline" style="margin-top: 10px;">ĐÃ HIỂU, VÀO CHƠI THÔI!</button>
+    </div>
+  </div>
+
+  <!-- Custom Room Modal (Solo bạn bè & Spectator) -->
+  <div id="roomModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card cyber-card-glow" style="max-width: 520px;">
+      <h2 class="font-cyber" style="color: #a855f7; font-size: 20px; letter-spacing: 1.5px;">
+        👥 PHÒNG ĐẤU BẠN BÈ & KHÁN GIẢ
+      </h2>
+
+      <!-- Room Tabs (Tạo phòng / Vào phòng) -->
+      <div id="roomTabsNav" class="tabs-nav">
+        <button id="tabCreateRoom" class="tab-btn active font-cyber">➕ TẠO PHÒNG MỚI</button>
+        <button id="tabJoinRoom" class="tab-btn font-cyber">🔑 VÀO BẰNG MÃ</button>
+      </div>
+
+      <!-- Panel 1: Create Room / Room Lobby View -->
+      <div id="createRoomPanel">
+        <!-- Room Code & Copy Link -->
+        <div style="background: rgba(0,0,0,0.4); padding: 14px; border-radius: 10px; border: 1px solid rgba(168, 85, 247, 0.3); margin-bottom: 14px;">
+          <div style="font-size: 11px; color: #94a3b8; font-weight: 700;">MÃ PHÒNG (ROOM CODE):</div>
+          <div id="displayRoomCode" class="font-cyber" style="font-size: 32px; color: #f59e0b; font-weight: 900; letter-spacing: 4px; margin: 4px 0;">
+            ------
+          </div>
+          <button id="btnCopyRoomLink" class="btn-cyber font-cyber" style="padding: 6px 14px; font-size: 12px; background: rgba(168, 85, 247, 0.25); border: 1px solid #a855f7;">
+            📋 SAO CHÉP LINK MỜI BẠN
+          </button>
+          <div id="copySuccessMsg" style="color: #10b981; font-size: 12px; margin-top: 6px; display: none;">
+            ✅ Đã sao chép link phòng vào bộ nhớ tạm!
+          </div>
+        </div>
+
+        <!-- Participants Slots -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div style="background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.4); border-radius: 8px; padding: 10px; text-align: left;">
+            <div style="font-size: 10px; color: #38bdf8; font-weight: 800;">CHỦ PHÒNG (HOST) 👑</div>
+            <div id="roomHostName" style="font-weight: 700; color: #fff; margin-top: 2px;">Bạn</div>
+          </div>
+          <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 8px; padding: 10px; text-align: left;">
+            <div style="font-size: 10px; color: #c084fc; font-weight: 800;">ĐỐI THỦ (GUEST) ⚔️</div>
+            <div id="roomGuestName" style="font-weight: 700; color: #94a3b8; margin-top: 2px;">Đang chờ bạn bè...</div>
+          </div>
+        </div>
+
+        <!-- Spectators Counter -->
+        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>👁️ Khán giả đang xem:</span>
+          <span id="roomSpectatorListText" class="font-cyber" style="color: #ec4899; font-weight: 700;">0 người</span>
+        </div>
+
+        <!-- Actions -->
+        <div style="display: flex; gap: 10px;">
+          <button id="btnStartCustomMatch" class="btn-cyber font-cyber" style="flex: 1; opacity: 0.5;" disabled>
+            🚀 BẮT ĐẦU TRẬN ĐẤU
+          </button>
+          <button id="btnLeaveCustomRoom" class="btn-cyber-outline font-cyber" style="flex: 1;">
+            RỜI PHÒNG
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel 2: Join Room -->
+      <div id="joinRoomPanel" style="display: none; flex-direction: column; gap: 14px;">
+        <p style="font-size: 13px; color: #94a3b8;">Nhập mã phòng gồm 5 ký tự từ bạn bè để tham gia solo hoặc làm khán giả:</p>
+        <input id="inputRoomCode" class="cyber-input font-cyber" placeholder="VÍ DỤ: 8F2K9" maxlength="6" style="text-align: center; font-size: 20px; letter-spacing: 3px; text-transform: uppercase;" />
+
+        <label style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #cbd5e1; cursor: pointer;">
+          <input type="checkbox" id="checkSpectator" style="width: 18px; height: 18px; accent-color: #ec4899;" />
+          <span>Vào phòng với tư cách <strong>Khán Giả (Spectator)</strong> để xem trực tiếp</span>
+        </label>
+
+        <div id="joinRoomError" style="color: #f43f5e; font-size: 12px; display: none;"></div>
+
+        <div style="display: flex; gap: 10px; margin-top: 8px;">
+          <button id="btnSubmitJoinRoom" class="btn-cyber font-cyber" style="flex: 1;">
+            VÀO PHÒNG NGAY
+          </button>
+          <button id="btnCloseRoomModal" class="btn-cyber-outline font-cyber" style="flex: 1;">
+            ĐÓNG
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

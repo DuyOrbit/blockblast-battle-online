@@ -1,0 +1,31 @@
+{
+  "name": "blockblast-arena",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "BlockBlast Arena - Real-time 1v1 PvP Competitive Block Blast Clone with Authoritative WebSocket Server and Elo Rating",
+  "scripts": {
+    "dev": "concurrently -k -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "tsx watch server/server.ts",
+    "dev:client": "vite",
+    "build:client": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "npm run build:client && npm run build:server",
+    "start": "node dist-server/server/server.js"
+  },
+  "keywords": ["blockblast", "pvp", "game", "canvas", "websocket", "elo"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}
