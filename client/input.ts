@@ -54,11 +54,13 @@ export class InputManager {
 
   private createDragAvatar() {
     this.dragAvatar = document.createElement('div');
-    this.dragAvatar.className = 'fixed pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2 hidden transition-transform';
+    this.dragAvatar.className = 'drag-avatar';
     this.dragAvatar.style.position = 'fixed';
     this.dragAvatar.style.pointerEvents = 'none';
     this.dragAvatar.style.zIndex = '9999';
     this.dragAvatar.style.display = 'none';
+    this.dragAvatar.style.transform = 'translate(-50%, -50%)';
+    this.dragAvatar.style.willChange = 'left, top';
     document.body.appendChild(this.dragAvatar);
   }
 
@@ -156,11 +158,13 @@ export class InputManager {
     if (!this.dragAvatar) return;
     this.dragAvatar.innerHTML = '';
     this.dragAvatar.style.display = 'block';
+    this.dragAvatar.style.transform = 'translate(-50%, -50%)';
 
+    const cellSize = Math.max(34, Math.min(48, Math.round(this.renderer.mainCellSize * 0.9)));
     const table = document.createElement('div');
     table.style.display = 'grid';
-    table.style.gridTemplateColumns = `repeat(${piece.width}, 36px)`;
-    table.style.gridTemplateRows = `repeat(${piece.height}, 36px)`;
+    table.style.gridTemplateColumns = `repeat(${piece.width}, ${cellSize}px)`;
+    table.style.gridTemplateRows = `repeat(${piece.height}, ${cellSize}px)`;
     table.style.gap = '3px';
 
     for (let r = 0; r < piece.height; r++) {
@@ -168,7 +172,7 @@ export class InputManager {
         const cell = document.createElement('div');
         if (piece.matrix[r][c] === 1) {
           cell.style.backgroundColor = piece.color;
-          cell.style.boxShadow = `0 0 10px ${piece.color}`;
+          cell.style.boxShadow = `0 0 12px ${piece.color}`;
           cell.style.borderRadius = '6px';
         } else {
           cell.style.backgroundColor = 'transparent';
@@ -184,27 +188,44 @@ export class InputManager {
     if (!this.dragAvatar) return;
     this.dragAvatar.style.left = `${clientX}px`;
     this.dragAvatar.style.top = `${clientY}px`;
+    this.dragAvatar.style.transform = 'translate(-50%, -50%)';
   }
 
-  private getGridCoordinates(clientX: number, clientY: number): { gx: number; gy: number } | null {
+  private getGridCoordinates(clientX: number, clientY: number, piece?: PieceShape): { gx: number; gy: number } | null {
     const rect = this.mainCanvas.getBoundingClientRect();
+    const ox = rect.left + this.renderer.mainGridOffset.x;
+    const oy = rect.top + this.renderer.mainGridOffset.y;
+    const cs = this.renderer.mainCellSize;
+    const boardPx = cs * BOARD_SIZE;
+
+    const relX = clientX - ox;
+    const relY = clientY - oy;
+
+    // Generous bounding box margin so piece does not disappear when dragging near edges
+    const margin = cs * 1.5;
     if (
-      clientX < rect.left ||
-      clientX > rect.right ||
-      clientY < rect.top ||
-      clientY > rect.bottom
+      relX < -margin ||
+      relX > boardPx + margin ||
+      relY < -margin ||
+      relY > boardPx + margin
     ) {
       return null;
     }
 
-    const relX = clientX - rect.left - this.renderer.mainGridOffset.x;
-    const relY = clientY - rect.top - this.renderer.mainGridOffset.y;
-    const cs = this.renderer.mainCellSize;
+    const cursorGx = Math.floor(relX / cs);
+    const cursorGy = Math.floor(relY / cs);
 
-    const gx = Math.floor(relX / cs);
-    const gy = Math.floor(relY / cs);
+    if (piece) {
+      // Offset so the center of the block is positioned at the cursor rather than top-left corner
+      const offsetX = Math.floor(piece.width / 2);
+      const offsetY = Math.floor(piece.height / 2);
+      return {
+        gx: cursorGx - offsetX,
+        gy: cursorGy - offsetY
+      };
+    }
 
-    return { gx, gy };
+    return { gx: cursorGx, gy: cursorGy };
   }
 
   private checkValid(piece: PieceShape, targetX: number, targetY: number): boolean {
@@ -235,13 +256,13 @@ export class InputManager {
       return;
     }
 
-    const coords = this.getGridCoordinates(clientX, clientY);
+    const coords = this.getGridCoordinates(clientX, clientY, activePiece);
     if (!coords) {
       this.currentGhost = null;
       return;
     }
 
-    // Snap anchor: place center or top-left
+    // Anchor at center of block
     const targetX = coords.gx;
     const targetY = coords.gy;
     const isValid = this.checkValid(activePiece, targetX, targetY);
@@ -264,7 +285,7 @@ export class InputManager {
     if (this.isDragging) return; // Handled by finishDrag
 
     if (this.selectedPieceIndex >= 0 && this.draggedPiece) {
-      const coords = this.getGridCoordinates(clientX, clientY);
+      const coords = this.getGridCoordinates(clientX, clientY, this.draggedPiece);
       if (coords && this.checkValid(this.draggedPiece, coords.gx, coords.gy)) {
         this.handlers.onPlacePiece(this.selectedPieceIndex, coords.gx, coords.gy);
         this.cancelDrag();
@@ -278,7 +299,7 @@ export class InputManager {
       return;
     }
 
-    const coords = this.getGridCoordinates(clientX, clientY);
+    const coords = this.getGridCoordinates(clientX, clientY, this.draggedPiece);
     if (coords && this.checkValid(this.draggedPiece, coords.gx, coords.gy)) {
       this.handlers.onPlacePiece(this.draggedIndex, coords.gx, coords.gy);
     }

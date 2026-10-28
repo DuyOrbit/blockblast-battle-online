@@ -649,3 +649,12 @@ body {
   box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
 }
 
+.drag-avatar {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  will-change: left, top;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.7));
+}
+
