@@ -308,11 +308,19 @@ class BlockBlastApp {
       this.switchMode('SOLO');
     });
 
-    // Solo Restart Button
+    // Solo Restart Buttons
     this.btnRestartSolo.addEventListener('click', () => {
       this.startSoloGame();
       sound.playPickup();
     });
+
+    const btnQuickRestart = document.getElementById('btnQuickRestartSolo');
+    if (btnQuickRestart) {
+      btnQuickRestart.addEventListener('click', () => {
+        sound.playClick();
+        this.startSoloGame();
+      });
+    }
 
     // Leaderboard Modal Open/Close
     document.getElementById('btnOpenLeaderboard')!.addEventListener('click', () => {

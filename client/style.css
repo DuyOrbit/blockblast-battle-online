@@ -329,12 +329,13 @@ body {
 /* TETR.IO-style Incoming Garbage Danger Gauge */
 .incoming-garbage-gauge {
   width: 12px;
-  height: 440px;
+  height: 100%;
+  max-height: 440px;
   background: #080c18;
   border: 1px solid rgba(244, 63, 94, 0.4);
   border-radius: 6px;
   overflow: hidden;
-  display: flex;
+  display: none;
   flex-direction: column-reverse;
   position: relative;
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.9), 0 0 12px rgba(244, 63, 94, 0.15);
@@ -735,9 +736,9 @@ body {
 /* Responsive adjustments for Tablets & Mobile Phones */
 @media (max-width: 768px) {
   .app-header {
-    padding: 10px 14px;
+    padding: 8px 12px;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
   }
   .battle-hud {
@@ -752,36 +753,47 @@ body {
   .boards-grid {
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
   .main-board-wrapper {
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
+  }
+  .canvas-stage {
+    gap: 6px;
+    align-items: stretch;
   }
   .main-canvas {
-    width: min(350px, calc(100vw - 24px));
-    height: min(350px, calc(100vw - 24px));
+    width: min(350px, calc(100vw - 20px));
+    height: min(350px, calc(100vw - 20px));
   }
   .dock-card-container {
-    max-width: min(350px, calc(100vw - 24px));
+    max-width: min(350px, calc(100vw - 20px));
+    margin: 0;
+    padding: 2px;
   }
   .dock-wrapper {
-    gap: 10px;
-    padding: 10px 12px;
-    min-height: 105px;
+    gap: 8px;
+    padding: 6px 10px;
+    min-height: 96px;
   }
   .dock-slot {
-    width: 96px;
-    height: 96px;
+    width: 94px;
+    height: 94px;
+  }
+  /* Hide the large tutorial tip card on all mobile/tablet views */
+  #soloTipCard {
+    display: none !important;
   }
   .side-panel {
     width: 100%;
-    max-width: min(350px, calc(100vw - 24px));
+    max-width: min(350px, calc(100vw - 20px));
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    order: 10;
   }
   .opp-canvas {
     width: 140px;
@@ -791,68 +803,130 @@ body {
 
 @media (max-width: 480px) {
   .app-header {
-    padding: 6px 10px;
+    padding: 4px 8px;
+    gap: 6px;
   }
-  .logo-container h1 {
-    font-size: 15px !important;
-  }
-  .logo-badge {
-    padding: 2px 6px;
-    font-size: 9px;
+  .logo-container {
+    display: none;
   }
   .mode-btn {
-    padding: 5px 10px;
-    font-size: 11px;
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  #userProfile {
+    display: none !important;
+  }
+  .btn-icon {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
   }
   .arena-container {
-    padding: 6px 4px;
-    gap: 8px;
+    padding: 4px 2px;
+    gap: 6px;
   }
-  .battle-hud {
-    padding: 6px 10px;
-    border-radius: 10px;
+
+  /* Compact 1-line Solo HUD on mobile */
+  #soloHud.battle-hud {
+    display: flex !important;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 8px;
+    min-height: 44px;
+    gap: 6px;
   }
-  .score-display {
-    font-size: 20px;
+  #soloHud .player-panel {
+    gap: 4px;
+    align-items: center;
   }
-  .match-timer {
-    font-size: 22px;
+  #soloHud .player-panel > div:first-child {
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 12px !important;
+    border-radius: 6px;
+  }
+  #soloHud .score-display {
+    font-size: 18px !important;
+  }
+  #soloHud .match-timer-box {
+    grid-column: auto;
+    order: 0;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #soloHud #soloHighScoreDisplay {
+    font-size: 18px !important;
+  }
+
+  .mobile-quick-restart {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  /* Eliminate the giant void: Hide soloSidePanel on iPhone so board + dock dominate viewport */
+  #soloSidePanel {
+    display: none !important;
+  }
+  #soloTipCard {
+    display: none !important;
+  }
+
+  .boards-grid {
+    gap: 4px;
   }
   .main-board-wrapper {
-    gap: 8px;
+    gap: 4px;
+  }
+  .canvas-stage {
+    gap: 4px;
   }
   .main-canvas {
-    width: min(330px, calc(100vw - 16px));
-    height: min(330px, calc(100vw - 16px));
+    width: min(330px, calc(100vw - 12px));
+    height: min(330px, calc(100vw - 12px));
   }
   .dock-card-container {
-    max-width: min(330px, calc(100vw - 16px));
+    max-width: min(330px, calc(100vw - 12px));
+    padding: 2px;
   }
   .dock-wrapper {
     gap: 6px;
-    padding: 6px 6px;
-    min-height: 92px;
+    padding: 4px 4px;
+    min-height: 84px;
   }
   .dock-slot {
-    width: 90px;
-    height: 90px;
+    width: 86px;
+    height: 86px;
     border-radius: 10px;
   }
-  .side-panel {
-    max-width: min(330px, calc(100vw - 16px));
-    gap: 8px;
+  .dock-key-badge {
+    top: 3px;
+    left: 3px;
+    font-size: 9px;
+    padding: 0 4px;
   }
   .modal-overlay > div {
     max-width: 95vw !important;
-    padding: 16px 14px !important;
-    margin: 8px;
+    padding: 14px 10px !important;
+    margin: 6px;
   }
   .tabs-nav {
-    gap: 6px;
+    gap: 4px;
   }
   .tab-btn {
-    padding: 6px 12px;
-    font-size: 11px;
+    padding: 5px 10px;
+    font-size: 10px;
   }
 }
 

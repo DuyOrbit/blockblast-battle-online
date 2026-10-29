@@ -4,7 +4,7 @@
 #
 
 app = 'blockblast-battle-online'
-primary_region = 'ams'
+primary_region = 'sin'
 
 [build]
 
