@@ -15,7 +15,7 @@
 export interface Block {
   id: string;
   name: string;
-  category: 'dot' | 'line' | 'square' | 'corner_3' | 'l_shape' | 't_shape' | 'z_shape';
+  category: 'dot' | 'line' | 'square' | 'corner_3' | 'l_shape' | 't_shape' | 'z_shape' | 'plus' | 'u_shape' | 'diag';
   matrix: number[][]; // Ma trận nhị phân 2D (1 và 0)
   size: number;       // Số ô thực tế (tổng số ô = 1)
   width: number;      // Chiều rộng khung bao (bounding width)
@@ -554,6 +554,149 @@ export const BLOCK_CATALOG: Block[] = [
     height: 3,
     color: NEON_COLORS.teal,
     glowColor: 'rgba(20, 184, 166, 0.6)'
+  },
+
+  // ==========================================
+  // 8. KHỐI DẤU CỘNG (CROSS / PLUS) - 1 hình
+  // ==========================================
+  {
+    id: 'cross_5',
+    name: 'Dấu Cộng 5 ô (Plus)',
+    category: 'plus',
+    matrix: [
+      [0, 1, 0],
+      [1, 1, 1],
+      [0, 1, 0]
+    ],
+    size: 5,
+    width: 3,
+    height: 3,
+    color: NEON_COLORS.emerald,
+    glowColor: 'rgba(16, 185, 129, 0.6)'
+  },
+
+  // ==========================================
+  // 9. KHỐI CHỮ U (U-SHAPES) - 4 hướng
+  // ==========================================
+  {
+    id: 'u_5_up',
+    name: 'Chữ U 5 ô (Hướng Lên)',
+    category: 'u_shape',
+    matrix: [
+      [1, 0, 1],
+      [1, 1, 1]
+    ],
+    size: 5,
+    width: 3,
+    height: 2,
+    color: NEON_COLORS.amber,
+    glowColor: 'rgba(245, 158, 11, 0.6)'
+  },
+  {
+    id: 'u_5_down',
+    name: 'Chữ U 5 ô (Hướng Xuống)',
+    category: 'u_shape',
+    matrix: [
+      [1, 1, 1],
+      [1, 0, 1]
+    ],
+    size: 5,
+    width: 3,
+    height: 2,
+    color: NEON_COLORS.amber,
+    glowColor: 'rgba(245, 158, 11, 0.6)'
+  },
+  {
+    id: 'u_5_left',
+    name: 'Chữ U 5 ô (Hướng Trái)',
+    category: 'u_shape',
+    matrix: [
+      [1, 1],
+      [1, 0],
+      [1, 1]
+    ],
+    size: 5,
+    width: 2,
+    height: 3,
+    color: NEON_COLORS.amber,
+    glowColor: 'rgba(245, 158, 11, 0.6)'
+  },
+  {
+    id: 'u_5_right',
+    name: 'Chữ U 5 ô (Hướng Phải)',
+    category: 'u_shape',
+    matrix: [
+      [1, 1],
+      [0, 1],
+      [1, 1]
+    ],
+    size: 5,
+    width: 2,
+    height: 3,
+    color: NEON_COLORS.amber,
+    glowColor: 'rgba(245, 158, 11, 0.6)'
+  },
+
+  // ==========================================
+  // 10. KHỐI ĐƯỜNG CHÉO (DIAGONALS) - 4 hình
+  // ==========================================
+  {
+    id: 'diag_2_fwd',
+    name: 'Đường Chéo 2 ô (Tiến)',
+    category: 'diag',
+    matrix: [
+      [0, 1],
+      [1, 0]
+    ],
+    size: 2,
+    width: 2,
+    height: 2,
+    color: NEON_COLORS.cyan,
+    glowColor: 'rgba(6, 182, 212, 0.6)'
+  },
+  {
+    id: 'diag_2_back',
+    name: 'Đường Chéo 2 ô (Lùi)',
+    category: 'diag',
+    matrix: [
+      [1, 0],
+      [0, 1]
+    ],
+    size: 2,
+    width: 2,
+    height: 2,
+    color: NEON_COLORS.cyan,
+    glowColor: 'rgba(6, 182, 212, 0.6)'
+  },
+  {
+    id: 'diag_3_fwd',
+    name: 'Đường Chéo 3 ô (Tiến)',
+    category: 'diag',
+    matrix: [
+      [0, 0, 1],
+      [0, 1, 0],
+      [1, 0, 0]
+    ],
+    size: 3,
+    width: 3,
+    height: 3,
+    color: NEON_COLORS.cyan,
+    glowColor: 'rgba(6, 182, 212, 0.6)'
+  },
+  {
+    id: 'diag_3_back',
+    name: 'Đường Chéo 3 ô (Lùi)',
+    category: 'diag',
+    matrix: [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1]
+    ],
+    size: 3,
+    width: 3,
+    height: 3,
+    color: NEON_COLORS.cyan,
+    glowColor: 'rgba(6, 182, 212, 0.6)'
   }
 ];
 

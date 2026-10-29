@@ -8,7 +8,7 @@ import {
   SoloLeaderboardEntry
 } from '../shared/types.js';
 import { GameEngine } from '../server/gameEngine.js';
-import { CanvasRenderer } from './renderer.js';
+import { CanvasRenderer, CUBE_DATA_URLS } from './renderer.js';
 import { InputManager } from './input.js';
 import { sound } from './sound.js';
 import { i18n } from './i18n.js';
@@ -174,6 +174,13 @@ class BlockBlastApp {
 
   constructor() {
     this.renderer = new CanvasRenderer(this.mainCanvas, this.oppCanvas);
+    this.renderer.onAtlasLoaded = () => {
+      if (this.currentMode === 'SOLO' && this.soloBoard) {
+        this.renderDockPieces(this.soloBoard.activePieces, true);
+      } else if (this.currentMode === 'PVP' && this.pvpLocalBoard) {
+        this.renderDockPieces(this.pvpLocalBoard.activePieces, true);
+      }
+    };
 
     this.inputManager = new InputManager(
       this.mainCanvas,
@@ -1430,11 +1437,22 @@ class BlockBlastApp {
           for (let c = 0; c < piece.width; c++) {
             const cell = document.createElement('div');
             if (piece.matrix[r][c] === 1) {
-              cell.style.backgroundColor = piece.color;
-              cell.style.backgroundImage = 'linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.1) 45%, rgba(0, 0, 0, 0.35) 100%)';
-              cell.style.boxShadow = `0 0 8px ${piece.color}, inset 0 0 5px rgba(255, 255, 255, 0.6)`;
-              cell.style.border = '1px solid rgba(255, 255, 255, 0.5)';
-              cell.style.borderRadius = isMobile ? '3.5px' : '5px';
+              const cubeUrl = CUBE_DATA_URLS[piece.color];
+              if (cubeUrl) {
+                cell.style.backgroundImage = `url("${cubeUrl}")`;
+                cell.style.backgroundSize = 'contain';
+                cell.style.backgroundRepeat = 'no-repeat';
+                cell.style.borderRadius = '0px';
+                cell.style.backgroundColor = 'transparent';
+                cell.style.boxShadow = 'none';
+                cell.style.border = 'none';
+              } else {
+                cell.style.backgroundColor = piece.color;
+                cell.style.backgroundImage = 'linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.1) 45%, rgba(0, 0, 0, 0.35) 100%)';
+                cell.style.boxShadow = `0 0 8px ${piece.color}, inset 0 0 5px rgba(255, 255, 255, 0.6)`;
+                cell.style.border = '1px solid rgba(255, 255, 255, 0.5)';
+                cell.style.borderRadius = isMobile ? '3.5px' : '5px';
+              }
             } else {
               cell.style.backgroundColor = 'transparent';
             }

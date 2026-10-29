@@ -1,6 +1,6 @@
 import { PieceShape } from '../shared/pieces.js';
 import { BoardGrid, BOARD_SIZE } from '../shared/types.js';
-import { CanvasRenderer } from './renderer.js';
+import { CanvasRenderer, CUBE_DATA_URLS } from './renderer.js';
 
 export interface InputHandlers {
   onPlacePiece: (pieceIndex: number, targetX: number, targetY: number) => void;
@@ -508,11 +508,22 @@ export class InputManager {
       for (let c = 0; c < piece.width; c++) {
         const cell = document.createElement('div');
         if (piece.matrix[r][c] === 1) {
-          cell.style.backgroundColor = piece.color;
-          cell.style.backgroundImage = 'linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.12) 45%, rgba(0, 0, 0, 0.4) 100%)';
-          cell.style.boxShadow = `0 0 14px ${piece.color}, inset 0 0 6px rgba(255, 255, 255, 0.7)`;
-          cell.style.border = '1px solid rgba(255, 255, 255, 0.6)';
-          cell.style.borderRadius = '6px';
+          const cubeUrl = CUBE_DATA_URLS[piece.color];
+          if (cubeUrl) {
+            cell.style.backgroundImage = `url("${cubeUrl}")`;
+            cell.style.backgroundSize = 'contain';
+            cell.style.backgroundRepeat = 'no-repeat';
+            cell.style.borderRadius = '0px';
+            cell.style.backgroundColor = 'transparent';
+            cell.style.boxShadow = 'none';
+            cell.style.border = 'none';
+          } else {
+            cell.style.backgroundColor = piece.color;
+            cell.style.backgroundImage = 'linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.12) 45%, rgba(0, 0, 0, 0.4) 100%)';
+            cell.style.boxShadow = `0 0 14px ${piece.color}, inset 0 0 6px rgba(255, 255, 255, 0.7)`;
+            cell.style.border = '1px solid rgba(255, 255, 255, 0.6)';
+            cell.style.borderRadius = '6px';
+          }
         } else {
           cell.style.backgroundColor = 'transparent';
         }

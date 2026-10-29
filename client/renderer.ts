@@ -58,11 +58,37 @@ export interface AttackProjectile {
   trail: { x: number; y: number; alpha: number }[];
 }
 
+export const APK_CUBE_SPRITES: Record<string, { x: number; y: number; w: number; h: number }> = {
+  // Red / Rose (game_cube_1)
+  '#f43f5e': { x: 451, y: 831, w: 106, h: 106 },
+  // Orange (game_cube_2)
+  '#f97316': { x: 451, y: 495, w: 106, h: 106 },
+  // Yellow / Amber (game_cube_3)
+  '#f59e0b': { x: 563, y: 865, w: 106, h: 106 },
+  '#eab308': { x: 563, y: 865, w: 106, h: 106 },
+  // Green / Emerald (game_cube_4)
+  '#10b981': { x: 265, y: 383, w: 106, h: 106 },
+  '#14b8a6': { x: 265, y: 383, w: 106, h: 106 },
+  // Cyan (game_cube_5)
+  '#06b6d4': { x: 563, y: 529, w: 106, h: 106 },
+  // Blue (game_cube_6)
+  '#3b82f6': { x: 339, y: 806, w: 106, h: 106 },
+  // Purple / Fuchsia (game_cube_7)
+  '#a855f7': { x: 227, y: 806, w: 106, h: 106 },
+  '#d946ef': { x: 227, y: 806, w: 106, h: 106 }
+};
+
+export const CUBE_DATA_URLS: Record<string, string> = {};
+
 export class CanvasRenderer {
   private mainCanvas: HTMLCanvasElement;
   private mainCtx: CanvasRenderingContext2D;
   private oppCanvas: HTMLCanvasElement;
   private oppCtx: CanvasRenderingContext2D;
+
+  public atlasImg: HTMLImageElement | null = null;
+  public isAtlasLoaded: boolean = false;
+  public onAtlasLoaded?: () => void;
 
   private particles: Particle[] = [];
   private floatingTexts: FloatingText[] = [];
@@ -87,6 +113,31 @@ export class CanvasRenderer {
 
     this.resizeCanvases();
     window.addEventListener('resize', () => this.resizeCanvases());
+
+    // Load authentic mobile Block Blast texture atlas
+    this.atlasImg = new Image();
+    this.atlasImg.src = '/textures/blocks_bg.png';
+    this.atlasImg.onload = () => {
+      this.isAtlasLoaded = true;
+      try {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = 106;
+        offCanvas.height = 106;
+        const offCtx = offCanvas.getContext('2d');
+        if (offCtx && this.atlasImg) {
+          for (const [color, rect] of Object.entries(APK_CUBE_SPRITES)) {
+            offCtx.clearRect(0, 0, 106, 106);
+            offCtx.drawImage(this.atlasImg, rect.x, rect.y, rect.w, rect.h, 0, 0, 106, 106);
+            CUBE_DATA_URLS[color] = offCanvas.toDataURL('image/png');
+          }
+          if (this.onAtlasLoaded) {
+            this.onAtlasLoaded();
+          }
+        }
+      } catch (err) {
+        console.warn('Could not generate cube dataURLs:', err);
+      }
+    };
   }
 
   public resizeCanvases() {
@@ -453,63 +504,32 @@ export class CanvasRenderer {
         ctx.fillText(`${cell.turnsRemaining}`, bx + bs / 2, by + bs / 2);
       }
     } else {
-      // 💎 Chroma Crystal Prism: Handcrafted faceted gemstone block
-      const cornerRadius = Math.max(5, Math.round(bs * 0.16));
+      const sprite = APK_CUBE_SPRITES[cell.color] || APK_CUBE_SPRITES['#f59e0b'];
+      if (this.isAtlasLoaded && this.atlasImg && sprite) {
+        // Draw 100% authentic Block Blast mobile 3D beveled block
+        ctx.drawImage(
+          this.atlasImg,
+          sprite.x, sprite.y, sprite.w, sprite.h,
+          bx, by, bs, bs
+        );
+      } else {
+        // High quality fallback
+        const cornerRadius = Math.max(5, Math.round(bs * 0.16));
+        ctx.shadowColor = cell.glowColor || cell.color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = cell.color;
+        this.roundRect(ctx, bx, by, bs, bs, cornerRadius);
+        ctx.fill();
 
-      // 1. Base vibrant neon ambient glow
-      ctx.shadowColor = cell.glowColor || cell.color;
-      ctx.shadowBlur = 14;
-      ctx.fillStyle = cell.color;
-      this.roundRect(ctx, bx, by, bs, bs, cornerRadius);
-      ctx.fill();
-
-      // 2. 3D Prismatic Bevel (Outer Chamfer Gradient)
-      const bevelGrad = ctx.createLinearGradient(bx, by, bx + bs, by + bs);
-      bevelGrad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
-      bevelGrad.addColorStop(0.25, 'rgba(255, 255, 255, 0.15)');
-      bevelGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.1)');
-      bevelGrad.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
-      ctx.fillStyle = bevelGrad;
-      this.roundRect(ctx, bx, by, bs, bs, cornerRadius);
-      ctx.fill();
-
-      // 3. Faceted Inner Gem Core (Lõi ngọc đa giác phát quang)
-      const innerInset = Math.max(4, Math.round(bs * 0.20));
-      const inX = bx + innerInset;
-      const inY = by + innerInset;
-      const inS = bs - innerInset * 2;
-      const inRadius = Math.max(3, Math.round(inS * 0.15));
-
-      // Inner Core radial burst
-      const coreCenterX = inX + inS / 2;
-      const coreCenterY = inY + inS / 2;
-      const coreGrad = ctx.createRadialGradient(coreCenterX, coreCenterY, 0, coreCenterX, coreCenterY, inS * 0.65);
-      coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      coreGrad.addColorStop(0.4, 'rgba(255, 255, 255, 0.45)');
-      coreGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.05)');
-      coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
-
-      ctx.fillStyle = coreGrad;
-      this.roundRect(ctx, inX, inY, inS, inS, inRadius);
-      ctx.fill();
-
-      // Delicate inner faceted border
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.lineWidth = 1;
-      this.roundRect(ctx, inX + 0.5, inY + 0.5, inS - 1, inS - 1, inRadius);
-      ctx.stroke();
-
-      // 4. Prismatic Specular Glint (Góc phản quang lấp lánh sắc nét)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.beginPath();
-      ctx.arc(inX + inS * 0.28, inY + inS * 0.28, Math.max(1.5, bs * 0.045), 0, Math.PI * 2);
-      ctx.fill();
-
-      // 5. Crisp Outer Diamond Border
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-      ctx.lineWidth = 1;
-      this.roundRect(ctx, bx + 0.5, by + 0.5, bs - 1, bs - 1, cornerRadius);
-      ctx.stroke();
+        const bevelGrad = ctx.createLinearGradient(bx, by, bx + bs, by + bs);
+        bevelGrad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+        bevelGrad.addColorStop(0.25, 'rgba(255, 255, 255, 0.15)');
+        bevelGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.1)');
+        bevelGrad.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+        ctx.fillStyle = bevelGrad;
+        this.roundRect(ctx, bx, by, bs, bs, cornerRadius);
+        ctx.fill();
+      }
     }
 
     // Flash highlight overlay for newly placed blocks
@@ -545,11 +565,22 @@ export class CanvasRenderer {
             const s = cs - 6;
 
             if (isValid) {
-              ctx.fillStyle = piece.glowColor || 'rgba(6, 182, 212, 0.45)';
-              ctx.strokeStyle = piece.color;
-              ctx.shadowColor = piece.color;
-              ctx.shadowBlur = 12;
-              ctx.lineWidth = 2;
+              const sprite = APK_CUBE_SPRITES[piece.color] || APK_CUBE_SPRITES['#f59e0b'];
+              if (this.isAtlasLoaded && this.atlasImg && sprite) {
+                ctx.save();
+                ctx.globalAlpha = 0.55;
+                ctx.drawImage(this.atlasImg, sprite.x, sprite.y, sprite.w, sprite.h, x, y, s, s);
+                ctx.restore();
+              } else {
+                ctx.fillStyle = piece.glowColor || 'rgba(6, 182, 212, 0.45)';
+                ctx.strokeStyle = piece.color;
+                ctx.shadowColor = piece.color;
+                ctx.shadowBlur = 12;
+                ctx.lineWidth = 2;
+                this.roundRect(ctx, x, y, s, s, 6);
+                ctx.fill();
+                ctx.stroke();
+              }
             } else {
               ctx.fillStyle = 'rgba(244, 63, 94, 0.25)';
               ctx.strokeStyle = '#f43f5e';
