@@ -418,7 +418,7 @@ export class CanvasRenderer {
 
     // Render Ghost Piece Preview
     if (ghost && ghost.piece) {
-      this.drawGhostPreview(ctx, ghost, ox, oy, cs);
+      this.drawGhostPreview(ctx, ghost, ox, oy, cs, board);
     }
 
     // Render Shockwaves across cleared lines
@@ -545,14 +545,111 @@ export class CanvasRenderer {
 
   private drawGhostPreview(
     ctx: CanvasRenderingContext2D,
-    ghost: { piece: PieceShape; targetX: number; targetY: number; isValid: boolean },
+    ghost: {
+      piece: PieceShape;
+      targetX: number;
+      targetY: number;
+      isValid: boolean;
+      clearedRows?: number[];
+      clearedCols?: number[];
+    },
     ox: number,
     oy: number,
-    cs: number
+    cs: number,
+    board?: BoardState | null
   ) {
-    const { piece, targetX, targetY, isValid } = ghost;
+    const { piece, targetX, targetY, isValid, clearedRows = [], clearedCols = [] } = ghost;
     const { matrix, width, height } = piece;
+    const boardPx = cs * BOARD_SIZE;
+    const hasClear = isValid && (clearedRows.length > 0 || clearedCols.length > 0);
 
+    // ========================================================
+    // 1. PRE-CLEAR EXPLODING LINE HIGHLIGHT (HIỆU ỨNG BÁO NỔ HÀNG/CỘT)
+    // ========================================================
+    if (hasClear) {
+      const now = performance.now();
+      const pulse = 0.5 + 0.5 * Math.sin(now * 0.012);
+      const glowAlpha = 0.22 + 0.18 * pulse;
+
+      // A. Highlight Cleared Rows (Toàn bộ hàng chuẩn bị nổ)
+      for (const r of clearedRows) {
+        const rowY = oy + r * cs;
+        ctx.save();
+        // Golden/white energy beam across the board
+        ctx.fillStyle = `rgba(250, 204, 21, ${glowAlpha})`;
+        ctx.shadowColor = '#facc15';
+        ctx.shadowBlur = 18 + 8 * pulse;
+        this.roundRect(ctx, ox + 1, rowY + 1, boardPx - 2, cs - 2, 8);
+        ctx.fill();
+
+        // Laser edge guides on top and bottom of the row
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 + 0.2 * pulse})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(ox + 3, rowY + 2.5);
+        ctx.lineTo(ox + boardPx - 3, rowY + 2.5);
+        ctx.moveTo(ox + 3, rowY + cs - 2.5);
+        ctx.lineTo(ox + boardPx - 3, rowY + cs - 2.5);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // B. Highlight Cleared Columns (Toàn bộ cột chuẩn bị nổ)
+      for (const c of clearedCols) {
+        const colX = ox + c * cs;
+        ctx.save();
+        // Golden/white energy beam down the board
+        ctx.fillStyle = `rgba(250, 204, 21, ${glowAlpha})`;
+        ctx.shadowColor = '#facc15';
+        ctx.shadowBlur = 18 + 8 * pulse;
+        this.roundRect(ctx, colX + 1, oy + 1, cs - 2, boardPx - 2, 8);
+        ctx.fill();
+
+        // Laser edge guides on left and right of the column
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.8 + 0.2 * pulse})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(colX + 2.5, oy + 3);
+        ctx.lineTo(colX + 2.5, oy + boardPx - 3);
+        ctx.moveTo(colX + cs - 2.5, oy + 3);
+        ctx.lineTo(colX + cs - 2.5, oy + boardPx - 3);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // C. Highlight Existing Board Blocks in Cleared Lines (Khối cũ phát sáng báo nổ)
+      if (board && board.grid) {
+        const rowSet = new Set(clearedRows);
+        const colSet = new Set(clearedCols);
+        for (let r = 0; r < BOARD_SIZE; r++) {
+          for (let c = 0; c < BOARD_SIZE; c++) {
+            if (board.grid[r][c] && (rowSet.has(r) || colSet.has(c))) {
+              const bx = ox + c * cs + 2;
+              const by = oy + r * cs + 2;
+              const bs = cs - 4;
+              ctx.save();
+              // Pulsing white electric burst overlay
+              ctx.fillStyle = `rgba(255, 255, 255, ${0.28 + 0.22 * pulse})`;
+              this.roundRect(ctx, bx, by, bs, bs, 6);
+              ctx.fill();
+
+              // Supercharged neon border
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2.5;
+              ctx.shadowColor = '#facc15';
+              ctx.shadowBlur = 16;
+              this.roundRect(ctx, bx, by, bs, bs, 6);
+              ctx.stroke();
+              ctx.restore();
+            }
+          }
+        }
+      }
+    }
+
+    // ========================================================
+    // 2. RENDER GHOST PIECE CELLS (KHỐI XEM TRƯỚC VỊ TRÍ ĐẶT)
+    // ========================================================
     ctx.save();
     for (let r = 0; r < height; r++) {
       for (let c = 0; c < width; c++) {
@@ -566,32 +663,67 @@ export class CanvasRenderer {
 
             if (isValid) {
               const sprite = APK_CUBE_SPRITES[piece.color] || APK_CUBE_SPRITES['#f59e0b'];
+
+              // 1. Backing ambient glow & color plate (đảm bảo sáng rõ, không mờ)
+              ctx.save();
+              ctx.fillStyle = hasClear ? 'rgba(250, 204, 21, 0.45)' : (piece.glowColor || 'rgba(6, 182, 212, 0.35)');
+              ctx.shadowColor = hasClear ? '#facc15' : piece.color;
+              ctx.shadowBlur = hasClear ? 18 : 12;
+              this.roundRect(ctx, x, y, s, s, 6);
+              ctx.fill();
+              ctx.restore();
+
+              // 2. Draw authentic 3D Cube sprite with high opacity
               if (this.isAtlasLoaded && this.atlasImg && sprite) {
                 ctx.save();
-                ctx.globalAlpha = 0.55;
+                ctx.globalAlpha = hasClear ? 0.95 : 0.88;
                 ctx.drawImage(this.atlasImg, sprite.x, sprite.y, sprite.w, sprite.h, x, y, s, s);
                 ctx.restore();
               } else {
-                ctx.fillStyle = piece.glowColor || 'rgba(6, 182, 212, 0.45)';
-                ctx.strokeStyle = piece.color;
-                ctx.shadowColor = piece.color;
-                ctx.shadowBlur = 12;
-                ctx.lineWidth = 2;
+                ctx.save();
+                ctx.fillStyle = piece.color;
                 this.roundRect(ctx, x, y, s, s, 6);
                 ctx.fill();
-                ctx.stroke();
+                ctx.restore();
               }
+
+              // 3. Crisp bright glowing border & highlight ring
+              ctx.save();
+              ctx.strokeStyle = hasClear ? '#ffffff' : (piece.glowColor || '#ffffff');
+              ctx.lineWidth = hasClear ? 3 : 2;
+              ctx.shadowColor = hasClear ? '#facc15' : piece.color;
+              ctx.shadowBlur = hasClear ? 18 : 12;
+              this.roundRect(ctx, x, y, s, s, 6);
+              ctx.stroke();
+
+              // Inner specular gleam
+              ctx.fillStyle = hasClear ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.22)';
+              this.roundRect(ctx, x + 2, y + 2, s - 4, s - 4, 4);
+              ctx.fill();
+              ctx.restore();
             } else {
-              ctx.fillStyle = 'rgba(244, 63, 94, 0.25)';
+              // Invalid spot: high-contrast red warning box with X marker
+              ctx.save();
+              ctx.fillStyle = 'rgba(244, 63, 94, 0.35)';
               ctx.strokeStyle = '#f43f5e';
               ctx.shadowColor = '#f43f5e';
-              ctx.shadowBlur = 8;
-              ctx.lineWidth = 1.5;
-            }
+              ctx.shadowBlur = 10;
+              ctx.lineWidth = 2;
+              this.roundRect(ctx, x, y, s, s, 6);
+              ctx.fill();
+              ctx.stroke();
 
-            this.roundRect(ctx, x, y, s, s, 6);
-            ctx.fill();
-            ctx.stroke();
+              // Clean X marker inside invalid cell
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(x + s * 0.3, y + s * 0.3);
+              ctx.lineTo(x + s * 0.7, y + s * 0.7);
+              ctx.moveTo(x + s * 0.7, y + s * 0.3);
+              ctx.lineTo(x + s * 0.3, y + s * 0.7);
+              ctx.stroke();
+              ctx.restore();
+            }
           }
         }
       }

@@ -1596,5 +1596,5 @@ class BlockBlastApp {
 
 // Instantiate on DOM load
 window.addEventListener('DOMContentLoaded', () => {
-  new BlockBlastApp();
+  (window as any).app = new BlockBlastApp();
 });

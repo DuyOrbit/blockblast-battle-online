@@ -38,6 +38,8 @@ export class InputManager {
     targetX: number;
     targetY: number;
     isValid: boolean;
+    clearedRows?: number[];
+    clearedCols?: number[];
   } | null = null;
 
   // Current client board grid for validation preview
@@ -302,11 +304,16 @@ export class InputManager {
     }
 
     const isValid = this.checkValid(ap.piece, this.cursorX, this.cursorY);
+    const { clearedRows, clearedCols } = isValid
+      ? this.getPotentialClears(ap.piece, this.cursorX, this.cursorY)
+      : { clearedRows: [], clearedCols: [] };
     this.currentGhost = {
       piece: ap.piece,
       targetX: this.cursorX,
       targetY: this.cursorY,
-      isValid
+      isValid,
+      clearedRows,
+      clearedCols
     };
 
     if (this.handlers.onPieceSelect) {
@@ -334,11 +341,16 @@ export class InputManager {
 
     if (piece) {
       const isValid = this.checkValid(piece, this.cursorX, this.cursorY);
+      const { clearedRows, clearedCols } = isValid
+        ? this.getPotentialClears(piece, this.cursorX, this.cursorY)
+        : { clearedRows: [], clearedCols: [] };
       this.currentGhost = {
         piece,
         targetX: this.cursorX,
         targetY: this.cursorY,
-        isValid
+        isValid,
+        clearedRows,
+        clearedCols
       };
     }
   }
@@ -446,7 +458,7 @@ export class InputManager {
    * Bind interactive events to a dock piece card or slot
    */
   public bindDockPiece(cardElement: HTMLElement, piece: PieceShape, index: number) {
-    const startInteraction = (clientX: number, clientY: number) => {
+    const startInteraction = (clientX: number, clientY: number, isTouch: boolean = false) => {
       // If clicking the already selected piece, deselect/toggle it
       if (this.selectedPieceIndex === index && !this.isDragging) {
         this.cancelDrag();
@@ -460,7 +472,7 @@ export class InputManager {
       this.selectedPieceIndex = index;
 
       this.renderAvatarPiece(piece);
-      const offsetY = this.getTouchOffsetY(piece);
+      const offsetY = isTouch ? this.getTouchOffsetY(piece) : 0;
       this.updateDragPosition(clientX, clientY + offsetY);
       this.handleCanvasMove(clientX, clientY + offsetY);
       this.updateDockSelectionUI(index);
@@ -473,7 +485,7 @@ export class InputManager {
     // Mouse drag
     cardElement.addEventListener('mousedown', (e) => {
       if (e.button !== 0) return; // Left click only
-      startInteraction(e.clientX, e.clientY);
+      startInteraction(e.clientX, e.clientY, false);
       e.preventDefault();
     });
 
@@ -483,7 +495,7 @@ export class InputManager {
       (e) => {
         if (e.touches.length > 0) {
           const t = e.touches[0];
-          startInteraction(t.clientX, t.clientY);
+          startInteraction(t.clientX, t.clientY, true);
           if (e.cancelable) e.preventDefault();
         }
       },
@@ -648,6 +660,51 @@ export class InputManager {
     return true;
   }
 
+  public getPotentialClears(piece: PieceShape, targetX: number, targetY: number): { clearedRows: number[]; clearedCols: number[] } {
+    if (!this.currentGrid) return { clearedRows: [], clearedCols: [] };
+    const { width, height, matrix } = piece;
+    const clearedRows: number[] = [];
+    const clearedCols: number[] = [];
+
+    // Check all 8 rows
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      let isFull = true;
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        if (this.currentGrid[r][c] !== null) {
+          continue;
+        }
+        const pr = r - targetY;
+        const pc = c - targetX;
+        if (pr >= 0 && pr < height && pc >= 0 && pc < width && matrix[pr][pc] === 1) {
+          continue;
+        }
+        isFull = false;
+        break;
+      }
+      if (isFull) clearedRows.push(r);
+    }
+
+    // Check all 8 cols
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      let isFull = true;
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        if (this.currentGrid[r][c] !== null) {
+          continue;
+        }
+        const pr = r - targetY;
+        const pc = c - targetX;
+        if (pr >= 0 && pr < height && pc >= 0 && pc < width && matrix[pr][pc] === 1) {
+          continue;
+        }
+        isFull = false;
+        break;
+      }
+      if (isFull) clearedCols.push(c);
+    }
+
+    return { clearedRows, clearedCols };
+  }
+
   private handleCanvasMove(clientX: number, clientY: number) {
     const activePiece = this.draggedPiece;
     if (!activePiece) {
@@ -664,6 +721,9 @@ export class InputManager {
     const targetX = coords.gx;
     const targetY = coords.gy;
     const isValid = this.checkValid(activePiece, targetX, targetY);
+    const { clearedRows, clearedCols } = isValid
+      ? this.getPotentialClears(activePiece, targetX, targetY)
+      : { clearedRows: [], clearedCols: [] };
 
     this.cursorX = targetX;
     this.cursorY = targetY;
@@ -672,7 +732,9 @@ export class InputManager {
       piece: activePiece,
       targetX,
       targetY,
-      isValid
+      isValid,
+      clearedRows,
+      clearedCols
     };
   }
 
