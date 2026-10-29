@@ -88,13 +88,14 @@ export class InputManager {
     window.addEventListener(
       'touchmove',
       (e) => {
-        if (this.isDragging && e.touches.length > 0) {
+        if (this.isDragging && e.touches && e.touches.length > 0) {
           const t = e.touches[0];
-          // Slight upward touch offset so piece is visible above player's fingertip
-          const offsetY = -40;
+          // Generous upward touch offset on mobile so piece is clearly visible above player's fingertip
+          const isMobile = window.innerWidth <= 768;
+          const offsetY = isMobile ? -65 : -40;
           this.updateDragPosition(t.clientX, t.clientY + offsetY);
           this.handleCanvasMove(t.clientX, t.clientY + offsetY);
-          e.preventDefault();
+          if (e.cancelable) e.preventDefault();
         }
       },
       { passive: false }
@@ -102,9 +103,19 @@ export class InputManager {
 
     window.addEventListener('touchend', (e) => {
       if (this.isDragging) {
-        const t = e.changedTouches[0];
-        const offsetY = -40;
-        this.finishDrag(t.clientX, t.clientY + offsetY);
+        try {
+          const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+          if (t) {
+            const isMobile = window.innerWidth <= 768;
+            const offsetY = isMobile ? -65 : -40;
+            this.finishDrag(t.clientX, t.clientY + offsetY);
+          } else {
+            this.cancelDrag();
+          }
+        } catch (err) {
+          console.warn('[Input] touchend error:', err);
+          this.cancelDrag();
+        }
       }
     });
 

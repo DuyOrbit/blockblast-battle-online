@@ -760,6 +760,14 @@ class BlockBlastApp {
 
     this.ws.onopen = () => {
       console.log('[WebSocket] Connected to BlockBlast Arena server');
+      // 15s keep-alive ping for Fly.io reverse proxies and mobile connection retention
+      if (!this.pingTimer) {
+        this.pingTimer = window.setInterval(() => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.sendPacket({ type: 'PING', timestamp: Date.now() });
+          }
+        }, 15000);
+      }
     };
 
     this.ws.onmessage = (event) => {
@@ -1190,11 +1198,19 @@ class BlockBlastApp {
         slot.classList.remove('empty');
         const piece: PieceShape = ap.piece;
 
+        const maxDim = Math.max(piece.width, piece.height);
+        const isMobile = window.innerWidth <= 480;
+        // Dynamically scale cell size so large pieces (5-bar, 3x3) always fit within slot
+        const dockCellSize = isMobile
+          ? (maxDim >= 5 ? 13 : maxDim === 4 ? 16 : 20)
+          : (maxDim >= 5 ? 15 : maxDim === 4 ? 18 : 22);
+        const cellGap = isMobile ? 2 : 2.5;
+
         const gridEl = document.createElement('div');
         gridEl.style.display = 'grid';
-        gridEl.style.gridTemplateColumns = `repeat(${piece.width}, 22px)`;
-        gridEl.style.gridTemplateRows = `repeat(${piece.height}, 22px)`;
-        gridEl.style.gap = '2.5px';
+        gridEl.style.gridTemplateColumns = `repeat(${piece.width}, ${dockCellSize}px)`;
+        gridEl.style.gridTemplateRows = `repeat(${piece.height}, ${dockCellSize}px)`;
+        gridEl.style.gap = `${cellGap}px`;
 
         for (let r = 0; r < piece.height; r++) {
           for (let c = 0; c < piece.width; c++) {
@@ -1202,7 +1218,7 @@ class BlockBlastApp {
             if (piece.matrix[r][c] === 1) {
               cell.style.backgroundColor = piece.color;
               cell.style.boxShadow = `0 0 6px ${piece.color}`;
-              cell.style.borderRadius = '4px';
+              cell.style.borderRadius = isMobile ? '3px' : '4px';
             } else {
               cell.style.backgroundColor = 'transparent';
             }
