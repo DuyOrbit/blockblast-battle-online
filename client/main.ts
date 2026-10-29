@@ -1431,8 +1431,10 @@ class BlockBlastApp {
             const cell = document.createElement('div');
             if (piece.matrix[r][c] === 1) {
               cell.style.backgroundColor = piece.color;
-              cell.style.boxShadow = `0 0 6px ${piece.color}`;
-              cell.style.borderRadius = isMobile ? '3px' : '4px';
+              cell.style.backgroundImage = 'linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.1) 45%, rgba(0, 0, 0, 0.35) 100%)';
+              cell.style.boxShadow = `0 0 8px ${piece.color}, inset 0 0 5px rgba(255, 255, 255, 0.6)`;
+              cell.style.border = '1px solid rgba(255, 255, 255, 0.5)';
+              cell.style.borderRadius = isMobile ? '3.5px' : '5px';
             } else {
               cell.style.backgroundColor = 'transparent';
             }

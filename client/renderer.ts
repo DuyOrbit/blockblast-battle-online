@@ -453,34 +453,62 @@ export class CanvasRenderer {
         ctx.fillText(`${cell.turnsRemaining}`, bx + bs / 2, by + bs / 2);
       }
     } else {
-      // Juicy Gummy / Jelly Candy Toy Block
-      const candyRadius = 8;
+      // 💎 Chroma Crystal Prism: Handcrafted faceted gemstone block
+      const cornerRadius = Math.max(5, Math.round(bs * 0.16));
+
+      // 1. Base vibrant neon ambient glow
       ctx.shadowColor = cell.glowColor || cell.color;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
       ctx.fillStyle = cell.color;
-      this.roundRect(ctx, bx, by, bs, bs, candyRadius);
+      this.roundRect(ctx, bx, by, bs, bs, cornerRadius);
       ctx.fill();
 
-      // Bottom bevel shadow (3D gummy depth)
-      const depthGrad = ctx.createLinearGradient(bx, by, bx, by + bs);
-      depthGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
-      depthGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.05)');
-      depthGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0)');
-      depthGrad.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
-      ctx.fillStyle = depthGrad;
-      this.roundRect(ctx, bx, by, bs, bs, candyRadius);
+      // 2. 3D Prismatic Bevel (Outer Chamfer Gradient)
+      const bevelGrad = ctx.createLinearGradient(bx, by, bx + bs, by + bs);
+      bevelGrad.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+      bevelGrad.addColorStop(0.25, 'rgba(255, 255, 255, 0.15)');
+      bevelGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.1)');
+      bevelGrad.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+      ctx.fillStyle = bevelGrad;
+      this.roundRect(ctx, bx, by, bs, bs, cornerRadius);
       ctx.fill();
 
-      // Juicy Glossy Reflection Shine on top-left
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      // 3. Faceted Inner Gem Core (Lõi ngọc đa giác phát quang)
+      const innerInset = Math.max(4, Math.round(bs * 0.20));
+      const inX = bx + innerInset;
+      const inY = by + innerInset;
+      const inS = bs - innerInset * 2;
+      const inRadius = Math.max(3, Math.round(inS * 0.15));
+
+      // Inner Core radial burst
+      const coreCenterX = inX + inS / 2;
+      const coreCenterY = inY + inS / 2;
+      const coreGrad = ctx.createRadialGradient(coreCenterX, coreCenterY, 0, coreCenterX, coreCenterY, inS * 0.65);
+      coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      coreGrad.addColorStop(0.4, 'rgba(255, 255, 255, 0.45)');
+      coreGrad.addColorStop(0.85, 'rgba(0, 0, 0, 0.05)');
+      coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+
+      ctx.fillStyle = coreGrad;
+      this.roundRect(ctx, inX, inY, inS, inS, inRadius);
+      ctx.fill();
+
+      // Delicate inner faceted border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.lineWidth = 1;
+      this.roundRect(ctx, inX + 0.5, inY + 0.5, inS - 1, inS - 1, inRadius);
+      ctx.stroke();
+
+      // 4. Prismatic Specular Glint (Góc phản quang lấp lánh sắc nét)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.beginPath();
-      ctx.ellipse(bx + bs * 0.32, by + bs * 0.28, bs * 0.22, bs * 0.12, -Math.PI / 5, 0, Math.PI * 2);
+      ctx.arc(inX + inS * 0.28, inY + inS * 0.28, Math.max(1.5, bs * 0.045), 0, Math.PI * 2);
       ctx.fill();
 
-      // Delicate bright white border
+      // 5. Crisp Outer Diamond Border
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 1;
-      this.roundRect(ctx, bx + 0.5, by + 0.5, bs - 1, bs - 1, candyRadius);
+      this.roundRect(ctx, bx + 0.5, by + 0.5, bs - 1, bs - 1, cornerRadius);
       ctx.stroke();
     }
 

@@ -509,7 +509,9 @@ export class InputManager {
         const cell = document.createElement('div');
         if (piece.matrix[r][c] === 1) {
           cell.style.backgroundColor = piece.color;
-          cell.style.boxShadow = `0 0 12px ${piece.color}`;
+          cell.style.backgroundImage = 'linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.12) 45%, rgba(0, 0, 0, 0.4) 100%)';
+          cell.style.boxShadow = `0 0 14px ${piece.color}, inset 0 0 6px rgba(255, 255, 255, 0.7)`;
+          cell.style.border = '1px solid rgba(255, 255, 255, 0.6)';
           cell.style.borderRadius = '6px';
         } else {
           cell.style.backgroundColor = 'transparent';
