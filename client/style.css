@@ -511,6 +511,12 @@ body {
   transform: scale(1.05);
 }
 
+.dock-slot.dragging {
+  opacity: 0.35;
+  transform: scale(0.92);
+  border-color: rgba(6, 182, 212, 0.4);
+}
+
 .dock-slot.empty {
   opacity: 0.2;
   cursor: default;
@@ -1091,6 +1097,25 @@ body {
   z-index: 9999;
   transform: translate(-50%, -50%);
   will-change: left, top;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.8)) drop-shadow(0 0 16px rgba(6, 182, 212, 0.35));
+  transition: transform 0.05s ease-out;
 }
+
+/* Complete Touch & Swipe Gesture Protection during gameplay */
+#gameScreen,
+.game-layout,
+.boards-grid,
+.main-board-wrapper,
+.canvas-stage,
+.main-canvas,
+.dock-card-container,
+.dock-wrapper,
+.dock-slot,
+.dock-card-container * {
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
 

@@ -88,6 +88,41 @@ export class InputManager {
     this.mainCanvas.addEventListener('mouseleave', () => this.handleCanvasLeave());
     this.mainCanvas.addEventListener('click', (e) => this.handleCanvasClick(e.clientX, e.clientY));
 
+    // Canvas tap-to-place for mobile touchscreens
+    let canvasTouchStartTime = 0;
+    let canvasTouchStartX = 0;
+    let canvasTouchStartY = 0;
+
+    this.mainCanvas.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.touches.length > 0) {
+          const t = e.touches[0];
+          canvasTouchStartTime = performance.now();
+          canvasTouchStartX = t.clientX;
+          canvasTouchStartY = t.clientY;
+        }
+      },
+      { passive: true }
+    );
+
+    this.mainCanvas.addEventListener(
+      'touchend',
+      (e) => {
+        const elapsed = performance.now() - canvasTouchStartTime;
+        const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+        if (t && elapsed < 350) {
+          const dist = Math.hypot(t.clientX - canvasTouchStartX, t.clientY - canvasTouchStartY);
+          if (dist < 18) {
+            // Clean tap on board canvas!
+            this.handleCanvasClick(t.clientX, t.clientY);
+            if (e.cancelable) e.preventDefault();
+          }
+        }
+      },
+      { passive: false }
+    );
+
     // Global drag move & release
     window.addEventListener('mousemove', (e) => {
       if (this.isDragging) {
@@ -108,8 +143,7 @@ export class InputManager {
       (e) => {
         if (this.isDragging && e.touches && e.touches.length > 0) {
           const t = e.touches[0];
-          const isMobile = window.innerWidth <= 768;
-          const offsetY = isMobile ? -65 : -40;
+          const offsetY = this.getTouchOffsetY(this.draggedPiece);
           this.updateDragPosition(t.clientX, t.clientY + offsetY);
           this.handleCanvasMove(t.clientX, t.clientY + offsetY);
           if (e.cancelable) e.preventDefault();
@@ -123,8 +157,7 @@ export class InputManager {
         try {
           const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
           if (t) {
-            const isMobile = window.innerWidth <= 768;
-            const offsetY = isMobile ? -65 : -40;
+            const offsetY = this.getTouchOffsetY(this.draggedPiece);
             this.finishDrag(t.clientX, t.clientY + offsetY);
           } else {
             this.cancelDrag();
@@ -141,6 +174,17 @@ export class InputManager {
         this.cancelDrag();
       }
     });
+  }
+
+  /**
+   * Adaptive touch offset: keeps the bottom of the piece 28px above the finger
+   */
+  private getTouchOffsetY(piece: PieceShape | null): number {
+    const isMobile = window.innerWidth <= 768;
+    if (!isMobile) return -30;
+    const cs = Math.max(34, Math.min(48, Math.round(this.renderer.mainCellSize * 0.95)));
+    const pieceH = piece ? piece.height : 2;
+    return -(Math.round((pieceH * cs) / 2) + 28);
   }
 
   /**
@@ -381,14 +425,20 @@ export class InputManager {
     slots.forEach((slot, i) => {
       if (i === selectedIndex) {
         slot.classList.add('selected');
+        if (this.isDragging) {
+          slot.classList.add('dragging');
+        } else {
+          slot.classList.remove('dragging');
+        }
       } else {
         slot.classList.remove('selected');
+        slot.classList.remove('dragging');
       }
     });
   }
 
   /**
-   * Bind interactive events to a dock piece card
+   * Bind interactive events to a dock piece card or slot
    */
   public bindDockPiece(cardElement: HTMLElement, piece: PieceShape, index: number) {
     const startInteraction = (clientX: number, clientY: number) => {
@@ -405,7 +455,8 @@ export class InputManager {
       this.selectedPieceIndex = index;
 
       this.renderAvatarPiece(piece);
-      this.updateDragPosition(clientX, clientY);
+      const offsetY = this.getTouchOffsetY(piece);
+      this.updateDragPosition(clientX, clientY + offsetY);
       this.updateDockSelectionUI(index);
 
       if (this.handlers.onPieceSelect) {
@@ -427,7 +478,7 @@ export class InputManager {
         if (e.touches.length > 0) {
           const t = e.touches[0];
           startInteraction(t.clientX, t.clientY);
-          e.preventDefault();
+          if (e.cancelable) e.preventDefault();
         }
       },
       { passive: false }
@@ -440,7 +491,7 @@ export class InputManager {
     this.dragAvatar.style.display = 'block';
     this.dragAvatar.style.transform = 'translate(-50%, -50%)';
 
-    const cellSize = Math.max(34, Math.min(48, Math.round(this.renderer.mainCellSize * 0.9)));
+    const cellSize = Math.max(34, Math.min(48, Math.round(this.renderer.mainCellSize * 0.95)));
     const table = document.createElement('div');
     table.style.display = 'grid';
     table.style.gridTemplateColumns = `repeat(${piece.width}, ${cellSize}px)`;
@@ -471,6 +522,9 @@ export class InputManager {
     this.dragAvatar.style.transform = 'translate(-50%, -50%)';
   }
 
+  /**
+   * Calculate grid coordinates with Magnetic Snap & Clamping for silky smooth mobile touch
+   */
   private getGridCoordinates(clientX: number, clientY: number, piece?: PieceShape): { gx: number; gy: number } | null {
     const rect = this.mainCanvas.getBoundingClientRect();
     const ox = rect.left + this.renderer.mainGridOffset.x;
@@ -481,12 +535,16 @@ export class InputManager {
     const relX = clientX - ox;
     const relY = clientY - oy;
 
-    const margin = cs * 1.5;
+    // Generous bounding margins so dragging near any edge of the board is recognized
+    const topMargin = Math.max(cs * 2.5, 90);
+    const bottomMargin = Math.max(cs * 2.5, 90);
+    const sideMargin = Math.max(cs * 2.0, 70);
+
     if (
-      relX < -margin ||
-      relX > boardPx + margin ||
-      relY < -margin ||
-      relY > boardPx + margin
+      relX < -sideMargin ||
+      relX > boardPx + sideMargin ||
+      relY < -topMargin ||
+      relY > boardPx + bottomMargin
     ) {
       return null;
     }
@@ -494,16 +552,60 @@ export class InputManager {
     const cursorGx = Math.floor(relX / cs);
     const cursorGy = Math.floor(relY / cs);
 
-    if (piece) {
-      const offsetX = Math.floor(piece.width / 2);
-      const offsetY = Math.floor(piece.height / 2);
+    if (!piece) {
       return {
-        gx: cursorGx - offsetX,
-        gy: cursorGy - offsetY
+        gx: Math.max(0, Math.min(BOARD_SIZE - 1, cursorGx)),
+        gy: Math.max(0, Math.min(BOARD_SIZE - 1, cursorGy))
       };
     }
 
-    return { gx: cursorGx, gy: cursorGy };
+    const { width, height } = piece;
+    const maxGx = BOARD_SIZE - width;
+    const maxGy = BOARD_SIZE - height;
+
+    const offsetX = Math.floor(width / 2);
+    const offsetY = Math.floor(height / 2);
+
+    const rawGx = cursorGx - offsetX;
+    const rawGy = cursorGy - offsetY;
+
+    // Clamp ideal placement to board boundaries
+    const clampedGx = Math.max(0, Math.min(maxGx, rawGx));
+    const clampedGy = Math.max(0, Math.min(maxGy, rawGy));
+
+    // 1. Direct hit: check if clamped spot is 100% valid
+    if (this.checkValid(piece, clampedGx, clampedGy)) {
+      return { gx: clampedGx, gy: clampedGy };
+    }
+
+    // 2. Magnetic Snap: Search immediate neighboring cells in order of proximity
+    const neighborDeltas = [
+      { dx: 0, dy: -1 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 },
+      { dx: 1, dy: 0 },
+      { dx: -1, dy: -1 },
+      { dx: 1, dy: -1 },
+      { dx: -1, dy: 1 },
+      { dx: 1, dy: 1 },
+      { dx: 0, dy: -2 },
+      { dx: 0, dy: 2 },
+      { dx: -2, dy: 0 },
+      { dx: 2, dy: 0 }
+    ];
+
+    for (const d of neighborDeltas) {
+      const testX = clampedGx + d.dx;
+      const testY = clampedGy + d.dy;
+      if (testX >= 0 && testX <= maxGx && testY >= 0 && testY <= maxGy) {
+        if (this.checkValid(piece, testX, testY)) {
+          return { gx: testX, gy: testY };
+        }
+      }
+    }
+
+    // 3. Fallback: return clamped spot (will display red invalid preview)
+    return { gx: clampedGx, gy: clampedGy };
   }
 
   private checkValid(piece: PieceShape, targetX: number, targetY: number): boolean {
@@ -586,7 +688,7 @@ export class InputManager {
     } else {
       // Releasing outside board / over dock:
       // Hide the drag avatar and disable active dragging mode,
-      // but KEEP the piece selected for Click-to-Place on the board!
+      // but KEEP the piece selected for Click-to-Place / Tap-to-Place on the board!
       this.isDragging = false;
       if (this.dragAvatar) {
         this.dragAvatar.style.display = 'none';

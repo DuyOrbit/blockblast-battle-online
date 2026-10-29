@@ -1367,7 +1367,7 @@ class BlockBlastApp {
         cardContainer.appendChild(gridEl);
 
         slot.appendChild(cardContainer);
-        this.inputManager.bindDockPiece(cardContainer, piece, i);
+        this.inputManager.bindDockPiece(slot, piece, i);
       }
     }
   }
