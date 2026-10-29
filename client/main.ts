@@ -97,6 +97,19 @@ class BlockBlastApp {
   private matchTimer = document.getElementById('matchTimer')!;
   private attackBanner = document.getElementById('attackBanner')!;
 
+  // Juicy Kid-Friendly HP & Avatar Elements
+  private localAvatar = document.getElementById('localAvatar');
+  private localAvatarEmoji = document.getElementById('localAvatarEmoji');
+  private localHpFill = document.getElementById('localHpFill');
+  private localHpGhost = document.getElementById('localHpGhost');
+  private localHpText = document.getElementById('localHpText');
+
+  private oppAvatar = document.getElementById('oppAvatar');
+  private oppAvatarEmoji = document.getElementById('oppAvatarEmoji');
+  private oppHpFill = document.getElementById('oppHpFill');
+  private oppHpGhost = document.getElementById('oppHpGhost');
+  private oppHpText = document.getElementById('oppHpText');
+
   // Matchmaking & Result Modals
   private queueModal = document.getElementById('queueModal')!;
   private queueTimerText = document.getElementById('queueTimerText')!;
@@ -379,6 +392,68 @@ class BlockBlastApp {
         sound.playHover();
       });
     });
+  }
+
+  private updateHpDisplay(isLocal: boolean, currentHp: number, maxHp: number = 1000) {
+    const clamped = Math.max(0, Math.min(currentHp, maxHp));
+    const pct = (clamped / maxHp) * 100;
+    const fillEl = isLocal ? this.localHpFill : this.oppHpFill;
+    const ghostEl = isLocal ? this.localHpGhost : this.oppHpGhost;
+    const textEl = isLocal ? this.localHpText : this.oppHpText;
+    const avatarEmoji = isLocal ? this.localAvatarEmoji : this.oppAvatarEmoji;
+
+    if (!fillEl || !textEl) return;
+
+    fillEl.style.width = `${pct}%`;
+    textEl.textContent = `${clamped} / ${maxHp}`;
+
+    if (ghostEl) {
+      ghostEl.style.opacity = '0.7';
+      setTimeout(() => {
+        if (ghostEl) {
+          ghostEl.style.width = `${pct}%`;
+          setTimeout(() => { if (ghostEl) ghostEl.style.opacity = '0'; }, 400);
+        }
+      }, 150);
+    }
+
+    if (pct <= 30) {
+      fillEl.classList.add('danger');
+    } else {
+      fillEl.classList.remove('danger');
+    }
+
+    // Reactive Avatar Expressions for kid-friendly charm
+    if (avatarEmoji) {
+      if (isLocal) {
+        if (clamped <= 0) {
+          avatarEmoji.textContent = '😵';
+        } else if (clamped <= 300) {
+          avatarEmoji.textContent = '🙀';
+        } else if (this.pvpLocalBoard && this.pvpLocalBoard.comboStreak >= 2) {
+          avatarEmoji.textContent = '😼';
+        } else {
+          avatarEmoji.textContent = '😸';
+        }
+      } else {
+        if (clamped <= 0) {
+          avatarEmoji.textContent = '💥';
+        } else if (clamped <= 300) {
+          avatarEmoji.textContent = '😰';
+        } else {
+          avatarEmoji.textContent = '🤖';
+        }
+      }
+    }
+  }
+
+  private triggerAvatarHit(isLocal: boolean) {
+    const box = isLocal ? this.localAvatar : this.oppAvatar;
+    if (box) {
+      box.classList.remove('hit');
+      void box.offsetWidth; // trigger reflow for animation restart
+      box.classList.add('hit');
+    }
   }
 
   private openRoomModal(initialTab: 'CREATE' | 'JOIN' = 'CREATE') {
@@ -850,7 +925,12 @@ class BlockBlastApp {
             activePieces: msg.yourPieces.map((p, idx) => ({ piece: p, index: idx, placed: false })),
             isKnockedOut: false,
             lastClearedLines: 0,
-            round: 0
+            round: 0,
+            hp: 1000,
+            maxHp: 1000,
+            lastDamageDealt: 0,
+            lastDamageTaken: 0,
+            incomingDamage: 0
           };
           this.inputManager.setGrid(emptyGrid);
           this.renderDockPieces(this.pvpLocalBoard.activePieces);
@@ -860,6 +940,12 @@ class BlockBlastApp {
         this.oppPlayerElo.textContent = `${msg.opponent.elo} ELO`;
         this.oppScore.textContent = '0';
         this.localScore.textContent = '0';
+
+        // Reset HP bars and cute avatar emojis
+        this.updateHpDisplay(true, 1000, 1000);
+        this.updateHpDisplay(false, 1000, 1000);
+        if (this.localAvatarEmoji) this.localAvatarEmoji.textContent = '😸';
+        if (this.oppAvatarEmoji) this.oppAvatarEmoji.textContent = '🤖';
 
         this.updateTimerDisplay(msg.timeRemaining);
         this.triggerCountdownAnimation();
@@ -876,6 +962,10 @@ class BlockBlastApp {
 
         this.localScore.textContent = msg.localBoard.score.toLocaleString();
         this.oppScore.textContent = msg.opponentBoard.score.toLocaleString();
+
+        // Sync HP values in HUD
+        this.updateHpDisplay(true, msg.localBoard.hp ?? 1000, msg.localBoard.maxHp ?? 1000);
+        this.updateHpDisplay(false, msg.opponentBoard.hp ?? 1000, msg.opponentBoard.maxHp ?? 1000);
 
         if (msg.localBoard.comboStreak > 1) {
           this.localComboBadge.style.display = 'inline-block';
@@ -932,27 +1022,44 @@ class BlockBlastApp {
         }
         break;
 
-      case 'ATTACK_EVENT':
+      case 'ATTACK_EVENT': {
+        const damage = msg.damage ?? 0;
+        const isCrit = msg.isCritical ?? false;
+
         if (this.currentMode === 'SPECTATOR') {
           sound.playAttackAlert();
-          this.renderer.spawnAttackProjectile(true, msg.count);
-          this.showAttackBanner(`⚔️ PHẢN ĐÒN: ${msg.count} GẠCH ĐÁ!`);
+          this.renderer.spawnAttackProjectile(true, msg.count || 1);
+          this.showAttackBanner(`⚔️ SÁT THƯƠNG: -${damage} HP!`);
+          this.updateHpDisplay(false, msg.targetRemainingHp ?? 1000);
         } else if (this.currentMode === 'PVP') {
           if (msg.toPlayerId === this.myPlayerId) {
             sound.playAttackWhoosh(false);
-            this.renderer.spawnAttackProjectile(false, msg.count);
-            this.renderer.triggerScreenShake(9);
-            this.showAttackBanner(`⚠️ ĐỐI THỦ BẮN SANG ${msg.count} GẠCH ĐÁ!`);
-            this.renderer.addFloatingText(`BỊ TẤN CÔNG! +${msg.count} GẠCH`, 220, 160, '#f43f5e', 26);
-            this.updateGarbageGauge(msg.count);
+            sound.playDamageHit(isCrit);
+            this.renderer.spawnAttackProjectile(false, msg.count || 1);
+            this.renderer.triggerScreenShake(isCrit ? 15 : 9);
+            this.triggerAvatarHit(true);
+            this.updateHpDisplay(true, msg.targetRemainingHp ?? 1000);
+
+            const hitTitle = isCrit ? `⚡ BẠO KÍCH! -${damage} HP` : `💥 BỊ TẤN CÔNG! -${damage} HP`;
+            this.showAttackBanner(hitTitle);
+            this.renderer.addFloatingText(`-${damage} HP!`, 220, 160, '#f43f5e', isCrit ? 32 : 26);
+            if (msg.count > 0) {
+              this.updateGarbageGauge(msg.count);
+            }
           } else {
             sound.playAttackWhoosh(true);
-            this.renderer.spawnAttackProjectile(true, msg.count);
-            this.showAttackBanner(`⚔️ BẮN THÀNH CÔNG ${msg.count} GẠCH ĐÁ SANG ĐỐI THỦ!`);
-            this.renderer.addFloatingText(`PHẢN ĐÒN! x${msg.count}`, 220, 160, '#10b981', 26);
+            sound.playDamageHit(isCrit);
+            this.renderer.spawnAttackProjectile(true, msg.count || 1);
+            this.triggerAvatarHit(false);
+            this.updateHpDisplay(false, msg.targetRemainingHp ?? 1000);
+
+            const strikeTitle = isCrit ? `🌟 BẠO KÍCH! -${damage} HP ĐỐI THỦ!` : `⚔️ TẤN CÔNG! -${damage} HP ĐỐI THỦ!`;
+            this.showAttackBanner(strikeTitle);
+            this.renderer.addFloatingText(`+${damage} DMG!`, 220, 160, '#10b981', isCrit ? 32 : 26);
           }
         }
         break;
+      }
 
       case 'EMOTE_EVENT':
         this.renderer.addFloatingText(
@@ -971,7 +1078,7 @@ class BlockBlastApp {
           sound.playVictory();
           this.resultTitle.textContent = 'TRẬN ĐẤU KẾT THÚC';
           this.resultTitle.style.color = '#fbbf24';
-          this.resultSubtitle.textContent = `Lý do: ${msg.reason === 'KO' ? 'Knockout' : 'Hết giờ (3:00)'}`;
+          this.resultSubtitle.textContent = `Lý do: ${msg.reason === 'KO' || msg.reason === 'HP_ZERO' ? 'Knockout (Hạ gục)' : 'Hết giờ (3:00)'}`;
           this.resultYourScore.textContent = msg.yourScore.toLocaleString();
           this.resultOppScore.textContent = msg.opponentScore.toLocaleString();
           this.resultEloText.textContent = 'Trận đấu giao hữu bạn bè';
@@ -987,6 +1094,8 @@ class BlockBlastApp {
           this.resultTitle.textContent = 'CHIẾN THẮNG';
           this.resultTitle.style.color = '#10b981';
           this.resultTitle.style.textShadow = '0 0 20px rgba(16, 185, 129, 0.8)';
+          if (this.localAvatarEmoji) this.localAvatarEmoji.textContent = '🏆';
+          if (this.oppAvatarEmoji) this.oppAvatarEmoji.textContent = '😵';
         } else if (msg.winnerId === null) {
           this.resultTitle.textContent = 'TRẬN ĐẤU HÒA';
           this.resultTitle.style.color = '#f59e0b';
@@ -995,10 +1104,14 @@ class BlockBlastApp {
           this.resultTitle.textContent = 'THẤT BẠI';
           this.resultTitle.style.color = '#f43f5e';
           this.resultTitle.style.textShadow = '0 0 20px rgba(244, 63, 94, 0.8)';
+          if (this.localAvatarEmoji) this.localAvatarEmoji.textContent = '😵';
+          if (this.oppAvatarEmoji) this.oppAvatarEmoji.textContent = '😎';
         }
 
-        const reasonMap = {
-          KO: 'Knockout - Đối thủ không còn ô trống để đặt gạch',
+        const reasonMap: Record<string, string> = {
+          KO: 'Knockout - Đối thủ bị hạ gục',
+          HP_ZERO: 'K.O - Rút cạn toàn bộ máu đối thủ (0 HP)!',
+          DEADLOCK: 'Nghẽn Bàn Cờ - Không còn ô trống để đặt gạch!',
           TIMEOUT: 'Hết giờ thi đấu (3:00) - Phân định bằng tổng điểm',
           SURRENDER: 'Đối thủ đã mất kết nối hoặc rời trận'
         };

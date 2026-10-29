@@ -4,7 +4,8 @@ import {
   GridCell,
   BoardState,
   LineClearResult,
-  ActivePiece
+  ActivePiece,
+  INITIAL_HP
 } from '../shared/types.js';
 import { PieceShape } from '../shared/pieces.js';
 import { generatePieceSet } from './prng.js';
@@ -38,7 +39,7 @@ export class GameEngine {
    */
   public static initPlayerBoard(playerId: string, seed: number): BoardState {
     const grid = this.createEmptyGrid();
-    const initialPieces = HandSolver.generateSolvablePieceSet(grid, seed, 0);
+    const initialPieces = HandSolver.generateSolvablePieceSet(grid, seed, 0, 0);
     const activePieces: (ActivePiece | null)[] = initialPieces.map((piece, index) => ({
       piece,
       index,
@@ -53,7 +54,12 @@ export class GameEngine {
       activePieces,
       isKnockedOut: false,
       lastClearedLines: 0,
-      round: 0
+      round: 0,
+      hp: INITIAL_HP,
+      maxHp: INITIAL_HP,
+      lastDamageDealt: 0,
+      lastDamageTaken: 0,
+      incomingDamage: 0
     };
   }
 
@@ -128,19 +134,21 @@ export class GameEngine {
     error?: string;
     clearResult?: LineClearResult;
     garbageSentToOpponent: number;
+    damageDealt: number;
+    isCritical: boolean;
     newRoundStarted: boolean;
   } {
     // 1. Validate active piece slot
     const activePiece = board.activePieces[pieceIndex];
     if (!activePiece || activePiece.placed) {
-      return { success: false, error: 'Piece is already placed or invalid slot', garbageSentToOpponent: 0, newRoundStarted: false };
+      return { success: false, error: 'Piece is already placed or invalid slot', garbageSentToOpponent: 0, damageDealt: 0, isCritical: false, newRoundStarted: false };
     }
 
     const { piece } = activePiece;
 
     // 2. Validate grid placement
     if (!this.canPlacePiece(board.grid, piece, targetX, targetY)) {
-      return { success: false, error: 'Illegal placement location', garbageSentToOpponent: 0, newRoundStarted: false };
+      return { success: false, error: 'Illegal placement location', garbageSentToOpponent: 0, damageDealt: 0, isCritical: false, newRoundStarted: false };
     }
 
     // 3. Stamp piece onto board
@@ -190,7 +198,7 @@ export class GameEngine {
 
     if (remainingUnplaced.length === 0) {
       board.round += 1;
-      const nextPieces = HandSolver.generateSolvablePieceSet(board.grid, seed, board.round);
+      const nextPieces = HandSolver.generateSolvablePieceSet(board.grid, seed, board.round, board.comboStreak);
       board.activePieces = nextPieces.map((p, idx) => ({
         piece: p,
         index: idx,
@@ -204,11 +212,38 @@ export class GameEngine {
       board.isKnockedOut = true;
     }
 
+    board.lastDamageDealt = clearResult.damageDealt;
+
     return {
       success: true,
       clearResult,
       garbageSentToOpponent: clearResult.garbageSent,
+      damageDealt: clearResult.damageDealt,
+      isCritical: clearResult.isCritical,
       newRoundStarted
+    };
+  }
+
+  /**
+   * Apply direct combat damage to a board state
+   */
+  public static applyDamage(
+    board: BoardState,
+    incomingDamage: number
+  ): { actualDamage: number; mitigated: number; remainingHp: number; isKnockedOut: boolean } {
+    const actualDamage = Math.max(0, incomingDamage);
+    board.hp = Math.max(0, board.hp - actualDamage);
+    board.lastDamageTaken = actualDamage;
+
+    if (board.hp <= 0) {
+      board.isKnockedOut = true;
+    }
+
+    return {
+      actualDamage,
+      mitigated: 0,
+      remainingHp: board.hp,
+      isKnockedOut: board.isKnockedOut
     };
   }
 
@@ -260,7 +295,9 @@ export class GameEngine {
         pointsEarned: 0,
         comboStreak: 0,
         garbageSent: 0,
-        isBoardCleared: false
+        isBoardCleared: false,
+        damageDealt: 0,
+        isCritical: false
       };
     }
 
@@ -304,9 +341,29 @@ export class GameEngine {
       pointsEarned += 2000; // All-Clear Mega Bonus!
     }
 
+    // Direct HP Combat Damage Calculation
+    // Base damage: 1 line = 50, 2 lines = 140, 3 lines = 260, 4+ lines = 450
+    let baseDamage = 0;
+    if (totalLines === 1) baseDamage = 50;
+    else if (totalLines === 2) baseDamage = 140;
+    else if (totalLines === 3) baseDamage = 260;
+    else if (totalLines >= 4) baseDamage = 450;
+
+    if (isBoardCleared) {
+      baseDamage += 300; // All-clear critical finisher
+    }
+
+    // Combo multiplier: x1: 1.0, x2: 1.3, x3: 1.7, x4: 2.1, x5+: 2.5
+    let damageMultiplier = 1.0;
+    if (newCombo === 2) damageMultiplier = 1.3;
+    else if (newCombo === 3) damageMultiplier = 1.7;
+    else if (newCombo === 4) damageMultiplier = 2.1;
+    else if (newCombo >= 5) damageMultiplier = 2.5;
+
+    const damageDealt = Math.round(baseDamage * damageMultiplier);
+    const isCritical = newCombo >= 3 || totalLines >= 3 || isBoardCleared;
+
     // Attack calculation (Garbage lines/blocks sent to opponent)
-    // Multi-line clears: 2 lines -> 1 garbage, 3 lines -> 2 garbage, 4+ lines -> 3 garbage
-    // Combo streak: if combo >= 2, send + (combo - 1) garbage
     let garbageSent = 0;
     if (totalLines === 2) garbageSent += 1;
     else if (totalLines === 3) garbageSent += 2;
@@ -323,7 +380,9 @@ export class GameEngine {
       pointsEarned,
       comboStreak: newCombo,
       garbageSent,
-      isBoardCleared
+      isBoardCleared,
+      damageDealt,
+      isCritical
     };
   }
 

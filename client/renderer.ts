@@ -31,6 +31,9 @@ export interface Particle {
   life: number;
   maxLife: number;
   alpha: number;
+  shape?: 'star' | 'circle' | 'sparkle' | 'confetti';
+  rotation?: number;
+  vRot?: number;
 }
 
 export interface Shockwave {
@@ -239,19 +242,26 @@ export class CanvasRenderer {
 
   private createSparkParticle(x: number, y: number, colorPalette: string[]) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random() * 5.5 + 2.0;
+    const speed = Math.random() * 6.5 + 2.0;
     const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+
+    const shapeRoll = Math.random();
+    const shape: 'star' | 'confetti' | 'sparkle' | 'circle' =
+      shapeRoll < 0.35 ? 'star' : shapeRoll < 0.65 ? 'confetti' : shapeRoll < 0.85 ? 'sparkle' : 'circle';
 
     this.particles.push({
       x,
       y,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 0.5,
+      vy: Math.sin(angle) * speed - 1.2,
       color,
-      size: Math.random() * 4.0 + 1.8,
+      size: Math.random() * 4.5 + 2.0,
       life: 0,
       maxLife: Math.floor(Math.random() * 25) + 35,
-      alpha: 1.0
+      alpha: 1.0,
+      shape,
+      rotation: Math.random() * Math.PI * 2,
+      vRot: (Math.random() - 0.5) * 0.2
     });
   }
 
@@ -432,26 +442,34 @@ export class CanvasRenderer {
         ctx.fillText(`${cell.turnsRemaining}`, bx + bs / 2, by + bs / 2);
       }
     } else {
-      // Vibrant Neon Block
+      // Juicy Gummy / Jelly Candy Toy Block
+      const candyRadius = 8;
       ctx.shadowColor = cell.glowColor || cell.color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.fillStyle = cell.color;
-      this.roundRect(ctx, bx, by, bs, bs, radius);
+      this.roundRect(ctx, bx, by, bs, bs, candyRadius);
       ctx.fill();
 
-      // Inner bevel specular highlight
-      const grad = ctx.createLinearGradient(bx, by, bx, by + bs);
-      grad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
-      grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.08)');
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
-
-      ctx.fillStyle = grad;
-      this.roundRect(ctx, bx, by, bs, bs, radius);
+      // Bottom bevel shadow (3D gummy depth)
+      const depthGrad = ctx.createLinearGradient(bx, by, bx, by + bs);
+      depthGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+      depthGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.05)');
+      depthGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0)');
+      depthGrad.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+      ctx.fillStyle = depthGrad;
+      this.roundRect(ctx, bx, by, bs, bs, candyRadius);
       ctx.fill();
 
-      // Border highlight
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      // Juicy Glossy Reflection Shine on top-left
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.beginPath();
+      ctx.ellipse(bx + bs * 0.32, by + bs * 0.28, bs * 0.22, bs * 0.12, -Math.PI / 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Delicate bright white border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 1;
+      this.roundRect(ctx, bx + 0.5, by + 0.5, bs - 1, bs - 1, candyRadius);
       ctx.stroke();
     }
 
@@ -667,11 +685,49 @@ export class CanvasRenderer {
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
       ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.translate(p.x, p.y);
+      if (p.rotation !== undefined) {
+        ctx.rotate(p.rotation);
+      }
+
+      if (p.shape === 'star') {
+        this.drawStar(ctx, 0, 0, 5, p.size * 1.5, p.size * 0.7);
+        ctx.fill();
+      } else if (p.shape === 'confetti') {
+        ctx.fillRect(-p.size, -p.size * 0.5, p.size * 2, p.size);
+      } else if (p.shape === 'sparkle') {
+        this.drawStar(ctx, 0, 0, 4, p.size * 1.6, p.size * 0.35);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
+  }
+
+  private drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, spikes: number, outerRadius: number, innerRadius: number) {
+    let rot = (Math.PI / 2) * 3;
+    let x = cx;
+    let y = cy;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+      x = cx + Math.cos(rot) * outerRadius;
+      y = cy + Math.sin(rot) * outerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
   }
 
   private renderFloatingText(ctx: CanvasRenderingContext2D) {
@@ -695,6 +751,9 @@ export class CanvasRenderer {
       p.x += p.vx;
       p.y += p.vy;
       p.vy += 0.12; // gentle gravity
+      if (p.vRot) {
+        p.rotation = (p.rotation || 0) + p.vRot;
+      }
       p.life++;
       p.alpha = Math.max(0, 1 - p.life / p.maxLife);
 

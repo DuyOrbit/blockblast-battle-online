@@ -797,27 +797,170 @@ export class BlockSpawner {
   }
 
   /**
+   * Helper kiểm tra 1 ô trên bảng có bị chiếm không
+   */
+  public static isCellOccupied(cell: any): boolean {
+    return cell !== 0 && cell !== null && cell !== undefined && cell !== false;
+  }
+
+  /**
+   * Tìm tất cả các khối trong danh mục (BLOCK_CATALOG) mà khi đặt vào bàn cờ hiện tại
+   * sẽ kích hoạt ăn ít nhất 1 hàng hoặc 1 cột (Catalyst / Key Pieces - Khối chìa khóa tạo nổ combo).
+   */
+  public static findCatalystBlocks(board: BoardMatrix): Block[] {
+    const rows = 8;
+    const cols = 8;
+
+    // Đếm số ô đã bị chiếm ở mỗi hàng và cột
+    const rowOccupied = new Array(rows).fill(0);
+    const colOccupied = new Array(cols).fill(0);
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (this.isCellOccupied(board[r]?.[c])) {
+          rowOccupied[r]++;
+          colOccupied[c]++;
+        }
+      }
+    }
+
+    // Lọc các hàng/cột tiềm năng (đã đầy từ 5 đến 7 ô, chỉ thiếu từ 1 đến 3 ô)
+    const candidateRows: number[] = [];
+    const candidateCols: number[] = [];
+    for (let r = 0; r < rows; r++) {
+      if (rowOccupied[r] >= 5 && rowOccupied[r] < 8) candidateRows.push(r);
+    }
+    for (let c = 0; c < cols; c++) {
+      if (colOccupied[c] >= 5 && colOccupied[c] < 8) candidateCols.push(c);
+    }
+
+    // Nếu không có hàng/cột nào gần đầy, không có khối catalyst nào kích nổ ngay được
+    if (candidateRows.length === 0 && candidateCols.length === 0) {
+      return [];
+    }
+
+    const catalystSet = new Set<string>();
+    const catalystBlocks: Block[] = [];
+
+    // Quét từng khối trong danh mục để xem có thể kích nổ không
+    for (const shape of BLOCK_CATALOG) {
+      const h = shape.height;
+      const w = shape.width;
+      if (h > rows || w > cols) continue;
+
+      let canClear = false;
+
+      // Thử đặt khối ở các vị trí hợp lệ
+      for (let r = 0; r <= rows - h && !canClear; r++) {
+        for (let c = 0; c <= cols - w && !canClear; c++) {
+          // 1. Kiểm tra vị trí này có hợp lệ không
+          let fits = true;
+          for (let dr = 0; dr < h; dr++) {
+            for (let dc = 0; dc < w; dc++) {
+              if (shape.matrix[dr][dc] === 1) {
+                if (this.isCellOccupied(board[r + dr]?.[c + dc])) {
+                  fits = false;
+                  break;
+                }
+              }
+            }
+            if (!fits) break;
+          }
+
+          if (!fits) continue;
+
+          // 2. Nếu đặt vừa, kiểm tra xem có hoàn thành bất kỳ hàng hoặc cột tiềm năng nào không
+          for (const targetRow of candidateRows) {
+            if (targetRow >= r && targetRow < r + h) {
+              let addedInRow = 0;
+              for (let dc = 0; dc < w; dc++) {
+                if (shape.matrix[targetRow - r][dc] === 1) addedInRow++;
+              }
+              if (rowOccupied[targetRow] + addedInRow === 8) {
+                canClear = true;
+                break;
+              }
+            }
+          }
+
+          if (canClear) break;
+
+          for (const targetCol of candidateCols) {
+            if (targetCol >= c && targetCol < c + w) {
+              let addedInCol = 0;
+              for (let dr = 0; dr < h; dr++) {
+                if (shape.matrix[dr][targetCol - c] === 1) addedInCol++;
+              }
+              if (colOccupied[targetCol] + addedInCol === 8) {
+                canClear = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (canClear && !catalystSet.has(shape.id)) {
+        catalystSet.add(shape.id);
+        catalystBlocks.push(shape);
+      }
+    }
+
+    return catalystBlocks;
+  }
+
+  /**
    * Sinh đợt 3 khối mới (Batch Generation of 3 Blocks) theo trạng thái bàn cờ hiện tại.
    *
-   * Quy trình xử lý:
-   * 1. Đếm số ô trống để xác định phân vùng trạng thái (Trống nhiều / Trung bình / Nguy cấp).
-   * 2. Bốc lần lượt 3 khối theo trọng số động, kiểm soát không trùng 2 khối 3x3 hay 2 khối thanh 5.
+   * Quy trình xử lý (Dopamine Heuristic Spawner):
+   * 1. Quét tìm các khối chìa khóa (Catalyst blocks) có khả năng kích nổ dòng ngay lập tức.
+   * 2. Nếu đang giữ Combo Streak (comboStreak >= 1) hoặc có dòng gần đầy:
+   *    - Khối 1: Tăng xác suất mạnh (50%-75%) chọn khối Chìa Khóa để giữ lửa Combo.
+   *    - Khối 2: Chọn khối Kiến Tạo (Setup Piece) vừa/nhỏ.
+   *    - Khối 3: Chọn khối Thách Thức (Challenge Piece).
    * 3. Kiểm tra Nguyên tắc sống còn (Solvability Guarantee):
    *    Trong bộ 3 khối sinh ra, BẮT BUỘC phải có ít nhất 1 khối đặt vừa vào bàn cờ hiện tại.
-   *    Nếu cả 3 khối ngẫu nhiên đều không đặt vừa (bế tắc), thuật toán sẽ thay thế 1 khối
-   *    bằng 1 khối hợp lệ có thể đặt được ngay lập tức (ưu tiên khối nhỏ theo trạng thái).
    *
    * @param currentBoardMatrix Ma trận bàn cờ 8x8 (0/1 hoặc GridCell)
+   * @param comboStreak Chuỗi combo hiện tại của người chơi
    * @returns Mảng đúng 3 khối [Block, Block, Block]
    */
-  public generateBlockBatch(currentBoardMatrix: BoardMatrix): Block[] {
+  public generateBlockBatch(currentBoardMatrix: BoardMatrix, comboStreak: number = 0): Block[] {
     const emptyCells = BlockSpawner.countEmptyCells(currentBoardMatrix);
     const batch: Block[] = [];
 
-    // Bốc 3 khối theo phân bổ trọng số và luật không trùng lặp khối lớn
-    for (let i = 0; i < 3; i++) {
-      const picked = this.pickWeightedBlock(BLOCK_CATALOG, emptyCells, batch);
-      batch.push(picked);
+    // Tìm các khối có thể kích nổ dòng ngay lập tức (Catalyst Pieces)
+    const catalystBlocks = BlockSpawner.findCatalystBlocks(currentBoardMatrix);
+
+    // Quyết định xem có "mớm" khối chìa khóa nổ dòng cho người chơi không
+    // Khi đang có combo streak >= 1: 75% khả năng có 1 khối chìa khóa
+    // Khi chưa có combo nhưng có dòng sắp nổ: 50% khả năng có 1 khối chìa khóa
+    const shouldInjectCatalyst = catalystBlocks.length > 0 && (
+      (comboStreak > 0 && this.rng() < 0.75) ||
+      (comboStreak === 0 && this.rng() < 0.50)
+    );
+
+    if (shouldInjectCatalyst) {
+      // Slot 0: Khối Chìa Khóa (Trigger / Key Piece)
+      const triggerPiece = catalystBlocks[Math.floor(this.rng() * catalystBlocks.length)];
+      batch.push(triggerPiece);
+
+      // Slot 1: Khối Kiến Tạo (Setup Piece) - khối vừa & nhỏ
+      const setupCandidates = BLOCK_CATALOG.filter(b =>
+        b.size <= 4 && b.id !== 'square_3x3' && !b.id.startsWith('line_5')
+      );
+      const setupPiece = this.pickWeightedBlock(setupCandidates, emptyCells, batch);
+      batch.push(setupPiece);
+
+      // Slot 2: Khối Thách Thức (Challenge / Tactical Piece)
+      const challengePiece = this.pickWeightedBlock(BLOCK_CATALOG, emptyCells, batch);
+      batch.push(challengePiece);
+    } else {
+      // Phân bổ thông thường theo trọng số động
+      for (let i = 0; i < 3; i++) {
+        const picked = this.pickWeightedBlock(BLOCK_CATALOG, emptyCells, batch);
+        batch.push(picked);
+      }
     }
 
     // =========================================================================
@@ -859,9 +1002,10 @@ export class BlockSpawner {
    */
   public static generateBlockBatch(
     currentBoardMatrix: BoardMatrix,
-    rngOrSeed?: (() => number) | number
+    rngOrSeed?: (() => number) | number,
+    comboStreak: number = 0
   ): Block[] {
     const spawner = new BlockSpawner(rngOrSeed);
-    return spawner.generateBlockBatch(currentBoardMatrix);
+    return spawner.generateBlockBatch(currentBoardMatrix, comboStreak);
   }
 }

@@ -124,6 +124,12 @@ Open `http://localhost:3001` in your browser.
 # Test BlockSpawner RNG Engine:
 npx tsx test/block_spawner_test.ts
 
+# Test Dopamine Combo Catalyst Spawner:
+npx tsx test/dopamine_combo_test.ts
+
+# Test 1v1 PvP HP Combat & Damage:
+npx tsx test/combat_hp_test.ts
+
 # Test Custom Friend Room & Live Spectator:
 npx tsx test/room_spectator_test.ts
 

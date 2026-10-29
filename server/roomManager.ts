@@ -287,8 +287,12 @@ export class RoomManager {
       return;
     }
 
-    // Line clear broadcast to players and spectators
+    // Line clear broadcast to players and spectators & Direct combat damage
     if (moveResult.clearResult && moveResult.clearResult.totalLines > 0) {
+      const damage = moveResult.clearResult.damageDealt;
+      const isCritical = moveResult.clearResult.isCritical;
+      const dmgRes = GameEngine.applyDamage(opponentBoard, damage);
+
       const clearMsg: ServerMessage = {
         type: 'LINE_CLEARED',
         playerId,
@@ -304,28 +308,38 @@ export class RoomManager {
       for (const spec of room.spectators.values()) {
         this.sendMessage(spec.ws, clearMsg);
       }
-    }
 
-    // Garbage attack
-    if (moveResult.garbageSentToOpponent > 0) {
-      GameEngine.injectGarbage(opponentBoard.grid, moveResult.garbageSentToOpponent);
       const attackMsg: ServerMessage = {
         type: 'ATTACK_EVENT',
         fromPlayerId: playerId,
         toPlayerId: opponentSide.info.id,
         count: moveResult.garbageSentToOpponent,
-        combo: moveResult.clearResult?.comboStreak || 1
+        combo: moveResult.clearResult.comboStreak,
+        damage,
+        isCritical,
+        targetRemainingHp: dmgRes.remainingHp
       };
       this.sendMessage(currentSide.ws, attackMsg);
       this.sendMessage(opponentSide.ws, attackMsg);
       for (const spec of room.spectators.values()) {
         this.sendMessage(spec.ws, attackMsg);
       }
+
+      // Check if opponent was Knocked Out by dropping to 0 HP
+      if (dmgRes.isKnockedOut) {
+        this.finishRoomMatch(room, 'HP_ZERO', playerId);
+        return;
+      }
+    }
+
+    // Garbage attack
+    if (moveResult.garbageSentToOpponent > 0) {
+      GameEngine.injectGarbage(opponentBoard.grid, moveResult.garbageSentToOpponent);
     }
 
     // Check KO
     if (currentBoard.isKnockedOut) {
-      this.finishRoomMatch(room, 'KO', opponentSide.info.id);
+      this.finishRoomMatch(room, 'DEADLOCK', opponentSide.info.id);
       return;
     }
 
@@ -334,7 +348,7 @@ export class RoomManager {
 
   public finishRoomMatch(
     room: CustomRoom,
-    reason: 'KO' | 'TIMEOUT' | 'SURRENDER',
+    reason: 'KO' | 'TIMEOUT' | 'SURRENDER' | 'HP_ZERO' | 'DEADLOCK',
     explicitWinnerId?: string
   ) {
     if (room.status === 'FINISHED') return;
@@ -409,7 +423,12 @@ export class RoomManager {
         score: room.boardB.score,
         comboStreak: room.boardB.comboStreak,
         isKnockedOut: room.boardB.isKnockedOut,
-        activePiecesCount: room.boardB.activePieces.filter(p => p !== null && !p.placed).length
+        activePiecesCount: room.boardB.activePieces.filter(p => p !== null && !p.placed).length,
+        hp: room.boardB.hp,
+        maxHp: room.boardB.maxHp,
+        lastDamageDealt: room.boardB.lastDamageDealt,
+        lastDamageTaken: room.boardB.lastDamageTaken,
+        incomingDamage: room.boardB.incomingDamage
       },
       timeRemaining: room.timeRemaining
     });
@@ -426,7 +445,12 @@ export class RoomManager {
         score: room.boardA.score,
         comboStreak: room.boardA.comboStreak,
         isKnockedOut: room.boardA.isKnockedOut,
-        activePiecesCount: room.boardA.activePieces.filter(p => p !== null && !p.placed).length
+        activePiecesCount: room.boardA.activePieces.filter(p => p !== null && !p.placed).length,
+        hp: room.boardA.hp,
+        maxHp: room.boardA.maxHp,
+        lastDamageDealt: room.boardA.lastDamageDealt,
+        lastDamageTaken: room.boardA.lastDamageTaken,
+        incomingDamage: room.boardA.incomingDamage
       },
       timeRemaining: room.timeRemaining
     });

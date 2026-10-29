@@ -113,7 +113,12 @@ function toOpponentState(board: BoardState, info: PlayerInfo): OpponentBoardStat
     score: board.score,
     comboStreak: board.comboStreak,
     isKnockedOut: board.isKnockedOut,
-    activePiecesCount: board.activePieces.filter(p => p !== null && !p.placed).length
+    activePiecesCount: board.activePieces.filter(p => p !== null && !p.placed).length,
+    hp: board.hp,
+    maxHp: board.maxHp,
+    lastDamageDealt: board.lastDamageDealt,
+    lastDamageTaken: board.lastDamageTaken,
+    incomingDamage: board.incomingDamage
   };
 }
 
@@ -144,7 +149,7 @@ function broadcastMatchState(match: MatchSession): void {
 async function finishMatch(
   match: MatchSession,
   winnerId: string | null,
-  reason: 'KO' | 'TIMEOUT' | 'SURRENDER'
+  reason: 'KO' | 'TIMEOUT' | 'SURRENDER' | 'HP_ZERO' | 'DEADLOCK'
 ): Promise<void> {
   if (match.status === 'FINISHED') return;
   match.status = 'FINISHED';
@@ -252,6 +257,10 @@ function startMatch(pair: MatchPairResult): void {
       {
         onMoveApplied: (botId, clearResult, garbageSent) => {
           if (clearResult && clearResult.totalLines > 0) {
+            const damage = clearResult.damageDealt;
+            const isCritical = clearResult.isCritical;
+            const dmgRes = GameEngine.applyDamage(matchSession.playerA.board, damage);
+
             sendMessage(matchSession.playerA.ws, {
               type: 'LINE_CLEARED',
               playerId: botId,
@@ -261,17 +270,26 @@ function startMatch(pair: MatchPairResult): void {
               comboStreak: clearResult.comboStreak,
               pointsEarned: clearResult.pointsEarned
             });
-          }
 
-          if (garbageSent && garbageSent > 0) {
-            GameEngine.injectGarbage(matchSession.playerA.board.grid, garbageSent);
             sendMessage(matchSession.playerA.ws, {
               type: 'ATTACK_EVENT',
               fromPlayerId: botId,
               toPlayerId: matchSession.playerA.info.id,
-              count: garbageSent,
-              combo: clearResult?.comboStreak || 1
+              count: garbageSent || 0,
+              combo: clearResult.comboStreak,
+              damage,
+              isCritical,
+              targetRemainingHp: dmgRes.remainingHp
             });
+
+            if (dmgRes.isKnockedOut) {
+              finishMatch(matchSession, botId, 'HP_ZERO');
+              return;
+            }
+          }
+
+          if (garbageSent && garbageSent > 0) {
+            GameEngine.injectGarbage(matchSession.playerA.board.grid, garbageSent);
           }
 
           broadcastMatchState(matchSession);
@@ -508,8 +526,12 @@ wss.on('connection', async (rawWs: WebSocket, req) => {
             return;
           }
 
-          // If lines cleared, notify
+          // If lines cleared, notify and apply combat damage
           if (moveResult.clearResult && moveResult.clearResult.totalLines > 0) {
+            const damage = moveResult.clearResult.damageDealt;
+            const isCritical = moveResult.clearResult.isCritical;
+            const dmgRes = GameEngine.applyDamage(opponentSide.board, damage);
+
             sendMessage(currentSide.ws, {
               type: 'LINE_CLEARED',
               playerId,
@@ -530,28 +552,37 @@ wss.on('connection', async (rawWs: WebSocket, req) => {
                 pointsEarned: moveResult.clearResult.pointsEarned
               });
             }
-          }
-
-          // If garbage attacks triggered, inject onto opponent
-          if (moveResult.garbageSentToOpponent > 0) {
-            GameEngine.injectGarbage(opponentSide.board.grid, moveResult.garbageSentToOpponent);
 
             const attackMsg: ServerMessage = {
               type: 'ATTACK_EVENT',
               fromPlayerId: playerId,
               toPlayerId: opponentSide.info.id,
               count: moveResult.garbageSentToOpponent,
-              combo: moveResult.clearResult?.comboStreak || 1
+              combo: moveResult.clearResult.comboStreak,
+              damage,
+              isCritical,
+              targetRemainingHp: dmgRes.remainingHp
             };
             sendMessage(currentSide.ws, attackMsg);
             if (opponentSide.ws) {
               sendMessage(opponentSide.ws, attackMsg);
             }
+
+            // Check if opponent was Knocked Out by dropping to 0 HP
+            if (dmgRes.isKnockedOut) {
+              finishMatch(match, playerId, 'HP_ZERO');
+              return;
+            }
           }
 
-          // Check Knockout (KO)
+          // If garbage attacks triggered, inject onto opponent
+          if (moveResult.garbageSentToOpponent > 0) {
+            GameEngine.injectGarbage(opponentSide.board.grid, moveResult.garbageSentToOpponent);
+          }
+
+          // Check Knockout (KO) due to board deadlock
           if (currentSide.board.isKnockedOut) {
-            finishMatch(match, opponentSide.info.id, 'KO');
+            finishMatch(match, opponentSide.info.id, 'DEADLOCK');
             return;
           }
 

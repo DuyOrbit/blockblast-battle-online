@@ -372,6 +372,58 @@ export class SoundController {
       osc.stop(now + i * 0.14 + 0.25);
     });
   }
+
+  /**
+   * Impact sound when delivering or receiving HP damage
+   */
+  public playDamageHit(isCritical: boolean = false) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = isCritical ? 'sawtooth' : 'triangle';
+    osc.frequency.setValueAtTime(isCritical ? 160 : 220, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + (isCritical ? 0.25 : 0.15));
+
+    gain.gain.setValueAtTime(isCritical ? 0.35 : 0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + (isCritical ? 0.25 : 0.15));
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + (isCritical ? 0.25 : 0.15));
+  }
+
+  /**
+   * Sound when parrying / mitigating damage
+   */
+  public playParryCounter() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, now);
+    osc.frequency.exponentialRampToValueAtTime(1760, now + 0.12);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.15);
+  }
 }
 
 export const sound = new SoundController();

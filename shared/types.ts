@@ -28,6 +28,8 @@ export interface ActivePiece {
   placed: boolean;
 }
 
+export const INITIAL_HP = 1000;
+
 export interface BoardState {
   playerId: string;
   grid: BoardGrid;
@@ -37,6 +39,11 @@ export interface BoardState {
   isKnockedOut: boolean;
   lastClearedLines: number;
   round: number;
+  hp: number;
+  maxHp: number;
+  lastDamageDealt?: number;
+  lastDamageTaken?: number;
+  incomingDamage?: number;
 }
 
 export interface OpponentBoardState {
@@ -48,6 +55,11 @@ export interface OpponentBoardState {
   comboStreak: number;
   isKnockedOut: boolean;
   activePiecesCount: number;
+  hp: number;
+  maxHp: number;
+  lastDamageDealt?: number;
+  lastDamageTaken?: number;
+  incomingDamage?: number;
 }
 
 export interface LineClearResult {
@@ -58,6 +70,8 @@ export interface LineClearResult {
   comboStreak: number;
   garbageSent: number;
   isBoardCleared: boolean;
+  damageDealt: number;
+  isCritical: boolean;
 }
 
 export interface SoloLeaderboardEntry {
@@ -148,6 +162,15 @@ export type ServerMessage =
       toPlayerId: string;
       count: number;
       combo: number;
+      damage: number;
+      isCritical: boolean;
+      targetRemainingHp: number;
+    }
+  | {
+      type: 'COUNTER_EVENT';
+      playerId: string;
+      damageMitigated: number;
+      counterDamage: number;
     }
   | {
       type: 'EMOTE_EVENT';
@@ -157,7 +180,7 @@ export type ServerMessage =
   | {
       type: 'MATCH_END';
       winnerId: string | null;
-      reason: 'KO' | 'TIMEOUT' | 'SURRENDER';
+      reason: 'KO' | 'TIMEOUT' | 'SURRENDER' | 'HP_ZERO' | 'DEADLOCK';
       yourScore: number;
       opponentScore: number;
       oldElo: number;

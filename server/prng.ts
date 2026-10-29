@@ -13,16 +13,17 @@ export { Mulberry32 } from '../shared/blockSpawner.js';
 export function generatePieceSet(
   seed: number,
   roundIndex: number,
-  board?: BoardMatrix
+  board?: BoardMatrix,
+  comboStreak: number = 0
 ): PieceShape[] {
   const roundSeed = (seed ^ Math.imul(roundIndex + 1, 0x9e3779b9)) >>> 0;
   const spawner = new BlockSpawner(roundSeed);
 
   if (board) {
-    return spawner.generateBlockBatch(board);
+    return spawner.generateBlockBatch(board, comboStreak);
   }
 
   // Bàn cờ rỗng 8x8 mặc định
   const emptyBoard: number[][] = Array.from({ length: 8 }, () => Array(8).fill(0));
-  return spawner.generateBlockBatch(emptyBoard);
+  return spawner.generateBlockBatch(emptyBoard, comboStreak);
 }

@@ -316,15 +316,16 @@ export class HandSolver {
   public static generateSolvablePieceSet(
     grid: BoardGrid,
     seed: number,
-    roundIndex: number
+    roundIndex: number,
+    comboStreak: number = 0
   ): PieceShape[] {
     const emptyCells = this.countEmptyCells(grid);
     if (emptyCells === 0) {
-      return generatePieceSet(seed, roundIndex);
+      return generatePieceSet(seed, roundIndex, undefined, comboStreak);
     }
 
-    // 1. First, roll standard balanced pieces from BlockSpawner with dynamic weighted balancing
-    let hand = generatePieceSet(seed, roundIndex, grid);
+    // 1. First, roll standard balanced pieces from BlockSpawner with dynamic weighted balancing & combo catalyst bias
+    let hand = generatePieceSet(seed, roundIndex, grid, comboStreak);
 
     // 2. Test if the natural roll is already solvable (could be Step 1, Step 2, Step 3, or natural fit)
     const initialPath = this.findSolutionPath(grid, hand);
