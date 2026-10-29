@@ -5,6 +5,8 @@ import { CanvasRenderer } from './renderer.js';
 export interface InputHandlers {
   onPlacePiece: (pieceIndex: number, targetX: number, targetY: number) => void;
   onPieceSelect?: (pieceIndex: number) => void;
+  onRestartGame?: () => void;
+  onToggleShortcutsModal?: () => void;
 }
 
 export class InputManager {
@@ -18,6 +20,14 @@ export class InputManager {
   private draggedIndex: number = -1;
   private isDragging: boolean = false;
   private selectedPieceIndex: number = -1;
+
+  // Keyboard Cursor Coordinates on 8x8 Board
+  private cursorX: number = 3;
+  private cursorY: number = 3;
+  private isKeyboardActive: boolean = false;
+
+  // Cached active pieces list from the game
+  private activePieces: (any | null)[] = [];
 
   // Floating drag avatar element
   private dragAvatar: HTMLElement | null = null;
@@ -46,10 +56,15 @@ export class InputManager {
 
     this.createDragAvatar();
     this.setupEventListeners();
+    this.setupKeyboardListeners();
   }
 
   public setGrid(grid: BoardGrid | null) {
     this.currentGrid = grid;
+  }
+
+  public setActivePieces(pieces: (any | null)[]) {
+    this.activePieces = pieces;
   }
 
   private createDragAvatar() {
@@ -66,7 +81,10 @@ export class InputManager {
 
   private setupEventListeners() {
     // Canvas pointer move (for ghost preview when piece is selected)
-    this.mainCanvas.addEventListener('mousemove', (e) => this.handleCanvasMove(e.clientX, e.clientY));
+    this.mainCanvas.addEventListener('mousemove', (e) => {
+      this.isKeyboardActive = false;
+      this.handleCanvasMove(e.clientX, e.clientY);
+    });
     this.mainCanvas.addEventListener('mouseleave', () => this.handleCanvasLeave());
     this.mainCanvas.addEventListener('click', (e) => this.handleCanvasClick(e.clientX, e.clientY));
 
@@ -90,7 +108,6 @@ export class InputManager {
       (e) => {
         if (this.isDragging && e.touches && e.touches.length > 0) {
           const t = e.touches[0];
-          // Generous upward touch offset on mobile so piece is clearly visible above player's fingertip
           const isMobile = window.innerWidth <= 768;
           const offsetY = isMobile ? -65 : -40;
           this.updateDragPosition(t.clientX, t.clientY + offsetY);
@@ -127,10 +144,253 @@ export class InputManager {
   }
 
   /**
+   * Keyboard Controls setup: 1, 2, 3 + WASD/Arrows + Space/Enter + Tab + Esc/C + R
+   */
+  private setupKeyboardListeners() {
+    window.addEventListener('keydown', (e) => {
+      // Ignore if user is currently typing inside an input or textarea
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      // 1, 2, 3: Select dock piece by slot index
+      if (key === '1' || key === '2' || key === '3') {
+        const slotIdx = parseInt(key, 10) - 1;
+        this.selectPieceByKeyboard(slotIdx);
+        e.preventDefault();
+        return;
+      }
+
+      // Tab: Cycle to next available piece
+      if (key === 'tab') {
+        this.cycleNextPiece();
+        e.preventDefault();
+        return;
+      }
+
+      // WASD / Arrow Keys: Move placement cursor on board
+      if (key === 'w' || e.key === 'ArrowUp') {
+        this.moveKeyboardCursor(0, -1);
+        e.preventDefault();
+        return;
+      }
+      if (key === 's' || e.key === 'ArrowDown') {
+        this.moveKeyboardCursor(0, 1);
+        e.preventDefault();
+        return;
+      }
+      if (key === 'a' || e.key === 'ArrowLeft') {
+        this.moveKeyboardCursor(-1, 0);
+        e.preventDefault();
+        return;
+      }
+      if (key === 'd' || e.key === 'ArrowRight') {
+        this.moveKeyboardCursor(1, 0);
+        e.preventDefault();
+        return;
+      }
+
+      // Space / Enter: Place selected piece onto board
+      if (key === ' ' || key === 'enter') {
+        this.dropKeyboardPiece();
+        e.preventDefault();
+        return;
+      }
+
+      // Esc / C: Deselect current piece
+      if (key === 'escape' || key === 'c') {
+        this.cancelDrag();
+        e.preventDefault();
+        return;
+      }
+
+      // R: Quick Restart
+      if (key === 'r') {
+        if (this.handlers.onRestartGame) {
+          this.handlers.onRestartGame();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      // ? or H: Toggle shortcuts modal
+      if (key === '?' || key === 'h') {
+        if (this.handlers.onToggleShortcutsModal) {
+          this.handlers.onToggleShortcutsModal();
+          e.preventDefault();
+        }
+        return;
+      }
+    });
+  }
+
+  /**
+   * Select a piece by index (0, 1, 2) via keyboard with Smart Auto-Snap
+   */
+  public selectPieceByKeyboard(index: number) {
+    const ap = this.activePieces[index];
+    if (!ap || ap.placed) return;
+
+    this.isKeyboardActive = true;
+    this.selectedPieceIndex = index;
+    this.draggedIndex = index;
+    this.draggedPiece = ap.piece;
+
+    this.updateDockSelectionUI(index);
+
+    // Smart Auto-Snap:
+    // If the piece already fits at current (cursorX, cursorY), stay there.
+    // Otherwise, scan the 8x8 grid to automatically snap to the nearest valid spot!
+    if (!this.checkValid(ap.piece, this.cursorX, this.cursorY)) {
+      const snapSpot = this.findSmartSnapPosition(ap.piece);
+      if (snapSpot) {
+        this.cursorX = snapSpot.x;
+        this.cursorY = snapSpot.y;
+      }
+    }
+
+    const isValid = this.checkValid(ap.piece, this.cursorX, this.cursorY);
+    this.currentGhost = {
+      piece: ap.piece,
+      targetX: this.cursorX,
+      targetY: this.cursorY,
+      isValid
+    };
+
+    if (this.handlers.onPieceSelect) {
+      this.handlers.onPieceSelect(index);
+    }
+  }
+
+  /**
+   * Move the keyboard cursor and update ghost preview
+   */
+  private moveKeyboardCursor(dx: number, dy: number) {
+    this.isKeyboardActive = true;
+
+    // If no piece is currently selected, auto-select the first available piece
+    if (!this.draggedPiece) {
+      this.autoSelectAvailablePiece();
+    }
+
+    const piece = this.draggedPiece;
+    const maxX = piece ? BOARD_SIZE - piece.width : BOARD_SIZE - 1;
+    const maxY = piece ? BOARD_SIZE - piece.height : BOARD_SIZE - 1;
+
+    this.cursorX = Math.max(0, Math.min(maxX, this.cursorX + dx));
+    this.cursorY = Math.max(0, Math.min(maxY, this.cursorY + dy));
+
+    if (piece) {
+      const isValid = this.checkValid(piece, this.cursorX, this.cursorY);
+      this.currentGhost = {
+        piece,
+        targetX: this.cursorX,
+        targetY: this.cursorY,
+        isValid
+      };
+    }
+  }
+
+  /**
+   * Drop the selected piece onto the current keyboard cursor position
+   */
+  private dropKeyboardPiece() {
+    if (!this.draggedPiece || this.selectedPieceIndex < 0) return;
+
+    const isValid = this.checkValid(this.draggedPiece, this.cursorX, this.cursorY);
+    if (isValid) {
+      const placedIndex = this.selectedPieceIndex;
+      const targetX = this.cursorX;
+      const targetY = this.cursorY;
+
+      this.handlers.onPlacePiece(placedIndex, targetX, targetY);
+      this.cancelDrag();
+
+      // Automatically select the next unplaced piece for rapid-fire gameplay!
+      setTimeout(() => {
+        this.autoSelectAvailablePiece();
+      }, 60);
+    } else {
+      // Trigger temporary red warning shake on ghost
+      if (this.currentGhost) {
+        this.currentGhost.isValid = false;
+      }
+    }
+  }
+
+  /**
+   * Cycle to the next available unplaced piece (Tab key)
+   */
+  private cycleNextPiece() {
+    const unplacedIndices: number[] = [];
+    for (let i = 0; i < this.activePieces.length; i++) {
+      const ap = this.activePieces[i];
+      if (ap && !ap.placed) unplacedIndices.push(i);
+    }
+
+    if (unplacedIndices.length === 0) return;
+
+    const currentPos = unplacedIndices.indexOf(this.selectedPieceIndex);
+    const nextIdx = unplacedIndices[(currentPos + 1) % unplacedIndices.length];
+    this.selectPieceByKeyboard(nextIdx);
+  }
+
+  /**
+   * Auto-select the first available unplaced piece
+   */
+  private autoSelectAvailablePiece() {
+    for (let i = 0; i < this.activePieces.length; i++) {
+      const ap = this.activePieces[i];
+      if (ap && !ap.placed) {
+        this.selectPieceByKeyboard(i);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Find a smart placement spot for piece on the current board
+   */
+  private findSmartSnapPosition(piece: PieceShape): { x: number; y: number } | null {
+    // 1. Check surrounding cells around current cursor position
+    const radiusOrder = [0, 1, 2, 3, 4, 5, 6, 7];
+    for (const r of radiusOrder) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const testX = this.cursorX + dx;
+          const testY = this.cursorY + dy;
+          if (this.checkValid(piece, testX, testY)) {
+            return { x: testX, y: testY };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Update visual highlight on dock slots
+   */
+  private updateDockSelectionUI(selectedIndex: number) {
+    const slots = Array.from(this.dockContainer.querySelectorAll('.dock-slot')) as HTMLElement[];
+    slots.forEach((slot, i) => {
+      if (i === selectedIndex) {
+        slot.classList.add('selected');
+      } else {
+        slot.classList.remove('selected');
+      }
+    });
+  }
+
+  /**
    * Bind interactive events to a dock piece card
    */
   public bindDockPiece(cardElement: HTMLElement, piece: PieceShape, index: number) {
     const startInteraction = (clientX: number, clientY: number) => {
+      this.isKeyboardActive = false;
       this.draggedPiece = piece;
       this.draggedIndex = index;
       this.isDragging = true;
@@ -138,6 +398,7 @@ export class InputManager {
 
       this.renderAvatarPiece(piece);
       this.updateDragPosition(clientX, clientY);
+      this.updateDockSelectionUI(index);
 
       if (this.handlers.onPieceSelect) {
         this.handlers.onPieceSelect(index);
@@ -212,7 +473,6 @@ export class InputManager {
     const relX = clientX - ox;
     const relY = clientY - oy;
 
-    // Generous bounding box margin so piece does not disappear when dragging near edges
     const margin = cs * 1.5;
     if (
       relX < -margin ||
@@ -227,7 +487,6 @@ export class InputManager {
     const cursorGy = Math.floor(relY / cs);
 
     if (piece) {
-      // Offset so the center of the block is positioned at the cursor rather than top-left corner
       const offsetX = Math.floor(piece.width / 2);
       const offsetY = Math.floor(piece.height / 2);
       return {
@@ -273,10 +532,12 @@ export class InputManager {
       return;
     }
 
-    // Anchor at center of block
     const targetX = coords.gx;
     const targetY = coords.gy;
     const isValid = this.checkValid(activePiece, targetX, targetY);
+
+    this.cursorX = targetX;
+    this.cursorY = targetY;
 
     this.currentGhost = {
       piece: activePiece,
@@ -287,13 +548,13 @@ export class InputManager {
   }
 
   private handleCanvasLeave() {
-    if (!this.isDragging) {
+    if (!this.isDragging && !this.isKeyboardActive) {
       this.currentGhost = null;
     }
   }
 
   private handleCanvasClick(clientX: number, clientY: number) {
-    if (this.isDragging) return; // Handled by finishDrag
+    if (this.isDragging) return;
 
     if (this.selectedPieceIndex >= 0 && this.draggedPiece) {
       const coords = this.getGridCoordinates(clientX, clientY, this.draggedPiece);
@@ -324,6 +585,8 @@ export class InputManager {
     this.draggedIndex = -1;
     this.selectedPieceIndex = -1;
     this.currentGhost = null;
+
+    this.updateDockSelectionUI(-1);
 
     if (this.dragAvatar) {
       this.dragAvatar.style.display = 'none';

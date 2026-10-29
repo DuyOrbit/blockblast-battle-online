@@ -11,6 +11,7 @@ import { GameEngine } from '../server/gameEngine.js';
 import { CanvasRenderer } from './renderer.js';
 import { InputManager } from './input.js';
 import { sound } from './sound.js';
+import { i18n } from './i18n.js';
 
 type GameMode = 'SOLO' | 'PVP' | 'SPECTATOR';
 
@@ -160,6 +161,13 @@ class BlockBlastApp {
 
   private helpModal = document.getElementById('helpModal')!;
 
+  // Language & Shortcuts
+  private btnLangToggle = document.getElementById('btnLangToggle')!;
+  private btnShortcuts = document.getElementById('btnShortcuts')!;
+  private shortcutsModal = document.getElementById('shortcutsModal')!;
+  private btnCloseShortcuts = document.getElementById('btnCloseShortcuts')!;
+  private btnCloseShortcutsX = document.getElementById('btnCloseShortcutsX')!;
+
   constructor() {
     this.renderer = new CanvasRenderer(this.mainCanvas, this.oppCanvas);
 
@@ -169,12 +177,19 @@ class BlockBlastApp {
       this.renderer,
       {
         onPlacePiece: (pieceIndex, x, y) => this.handlePlacePiece(pieceIndex, x, y),
-        onPieceSelect: () => sound.playPickup()
+        onPieceSelect: () => sound.playPickup(),
+        onRestartGame: () => {
+          if (this.currentMode === 'SOLO') {
+            this.startSoloGame();
+          }
+        },
+        onToggleShortcutsModal: () => this.toggleShortcutsModal()
       }
     );
 
     this.loadSoloStats();
     this.setupUIHandlers();
+    this.applyTranslations();
     this.connectWebSocket();
     this.startSoloGame();
     this.startRenderLoop();
@@ -386,12 +401,110 @@ class BlockBlastApp {
       });
     });
 
+    // Language Toggle
+    this.btnLangToggle.addEventListener('click', () => this.toggleLanguage());
+
+    // Shortcuts Modal
+    this.btnShortcuts.addEventListener('click', () => this.toggleShortcutsModal());
+    this.btnCloseShortcuts.addEventListener('click', () => this.shortcutsModal.classList.add('hidden'));
+    this.btnCloseShortcutsX.addEventListener('click', () => this.shortcutsModal.classList.add('hidden'));
+    this.shortcutsModal.addEventListener('click', (e) => {
+      if (e.target === this.shortcutsModal) this.shortcutsModal.classList.add('hidden');
+    });
+
     // Tactile micro-clicks for buttons and interactive cards
     document.querySelectorAll('.btn-cyber, .btn-cyber-outline, .mode-btn, .dock-slot, .tab-btn').forEach(el => {
       el.addEventListener('mouseenter', () => {
         sound.playHover();
       });
     });
+  }
+
+  private toggleLanguage() {
+    i18n.toggleLanguage();
+    this.applyTranslations();
+    sound.playClick();
+  }
+
+  private toggleShortcutsModal() {
+    this.shortcutsModal.classList.toggle('hidden');
+    sound.playClick();
+  }
+
+  private applyTranslations() {
+    this.btnLangToggle.textContent = i18n.t('langToggle');
+    this.btnModeSolo.textContent = i18n.t('modeSolo');
+    this.btnModePvP.textContent = i18n.t('modePvP');
+    this.btnOpenRoomModal.textContent = i18n.t('btnCustomRoom');
+    this.btnOpenLeaderboard.textContent = i18n.t('btnLeaderboard');
+
+    const soloScoreTitle = document.getElementById('soloScoreTitle');
+    if (soloScoreTitle) soloScoreTitle.textContent = i18n.t('currentScore');
+
+    const soloBestTitle = document.getElementById('soloBestTitle');
+    if (soloBestTitle) soloBestTitle.textContent = i18n.t('highScore');
+
+    const soloLinesTitle = document.getElementById('soloLinesTitle');
+    if (soloLinesTitle) soloLinesTitle.textContent = i18n.t('linesCleared');
+
+    const soloSideStatsTitle = document.getElementById('soloSideStatsTitle');
+    if (soloSideStatsTitle) soloSideStatsTitle.textContent = i18n.t('matchStats');
+
+    const soloSideMaxComboLabel = document.getElementById('soloSideMaxComboLabel');
+    if (soloSideMaxComboLabel) soloSideMaxComboLabel.textContent = i18n.t('maxCombo');
+
+    const soloSideLinesLabel = document.getElementById('soloSideLinesLabel');
+    if (soloSideLinesLabel) soloSideLinesLabel.textContent = i18n.t('linesDestroyed');
+
+    const soloSideTargetLabel = document.getElementById('soloSideTargetLabel');
+    if (soloSideTargetLabel) soloSideTargetLabel.textContent = i18n.t('targetTop1');
+
+    this.btnRestartSolo.textContent = i18n.t('btnRestartSolo');
+
+    const soloTipTitle = document.getElementById('soloTipTitle');
+    if (soloTipTitle) soloTipTitle.textContent = i18n.t('tipTitle');
+
+    const soloTipContent = document.getElementById('soloTipContent');
+    if (soloTipContent) soloTipContent.textContent = i18n.t('tipContent');
+
+    const oppBoardTitle = document.getElementById('oppBoardTitle');
+    if (oppBoardTitle) oppBoardTitle.textContent = i18n.t('opponentBoard');
+
+    const oppLiveStatus = document.getElementById('oppLiveStatus');
+    if (oppLiveStatus) oppLiveStatus.textContent = i18n.t('liveStatus');
+
+    const attackBanner = document.getElementById('attackBanner');
+    if (attackBanner) attackBanner.textContent = i18n.t('attackAlert');
+
+    const emotesTitle = document.getElementById('emotesTitle');
+    if (emotesTitle) emotesTitle.textContent = i18n.t('emotesTitle');
+
+    const shortcutsModalTitle = document.getElementById('shortcutsModalTitle');
+    if (shortcutsModalTitle) shortcutsModalTitle.textContent = i18n.t('shortcutsModalTitle');
+
+    const shortcutsModalSubtitle = document.getElementById('shortcutsModalSubtitle');
+    if (shortcutsModalSubtitle) shortcutsModalSubtitle.textContent = i18n.t('shortcutsSubtitle');
+
+    const key123Desc = document.getElementById('key123Desc');
+    if (key123Desc) key123Desc.textContent = i18n.t('key123Desc');
+
+    const keyMoveDesc = document.getElementById('keyMoveDesc');
+    if (keyMoveDesc) keyMoveDesc.textContent = i18n.t('keyMoveDesc');
+
+    const keyPlaceDesc = document.getElementById('keyPlaceDesc');
+    if (keyPlaceDesc) keyPlaceDesc.textContent = i18n.t('keyPlaceDesc');
+
+    const keyTabDesc = document.getElementById('keyTabDesc');
+    if (keyTabDesc) keyTabDesc.textContent = i18n.t('keyTabDesc');
+
+    const keyCancelDesc = document.getElementById('keyCancelDesc');
+    if (keyCancelDesc) keyCancelDesc.textContent = i18n.t('keyCancelDesc');
+
+    const keyRestartDesc = document.getElementById('keyRestartDesc');
+    if (keyRestartDesc) keyRestartDesc.textContent = i18n.t('keyRestartDesc');
+
+    const btnCloseShortcuts = document.getElementById('btnCloseShortcuts');
+    if (btnCloseShortcuts) btnCloseShortcuts.textContent = i18n.t('btnCloseShortcuts');
   }
 
   private updateHpDisplay(isLocal: boolean, currentHp: number, maxHp: number = 1000) {
@@ -582,11 +695,17 @@ class BlockBlastApp {
 
       this.renderer.spawnLineClearParticles(cr.rows, cr.cols);
 
-      const title = cr.totalLines === 1 ? '+100' : cr.totalLines === 2 ? 'DOUBLE! +300' : cr.totalLines === 3 ? 'TRIPLE! +600' : 'MEGA CLEAR! +1000';
+      const title = cr.totalLines === 1
+        ? i18n.t('singleClear')
+        : cr.totalLines === 2
+        ? i18n.t('doubleClear')
+        : cr.totalLines === 3
+        ? i18n.t('tripleClear')
+        : i18n.t('megaClear');
       this.renderer.addFloatingText(title, 220, 180, '#38bdf8', 24);
 
       if (cr.comboStreak >= 2) {
-        this.renderer.addFloatingText(`COMBO x${cr.comboStreak}!`, 220, 220, '#f59e0b', 26);
+        this.renderer.addFloatingText(`${i18n.t('comboText')} x${cr.comboStreak}!`, 220, 220, '#f59e0b', 26);
       }
     }
 
@@ -1187,11 +1306,12 @@ class BlockBlastApp {
   }
 
   private renderDockPieces(activePieces: (any | null)[]) {
+    this.inputManager.setActivePieces(activePieces);
     for (let i = 0; i < 3; i++) {
       const slot = this.dockSlots[i];
       const ap = activePieces[i];
 
-      slot.innerHTML = '';
+      slot.innerHTML = `<span class="dock-key-badge font-cyber">${i + 1}</span>`;
       if (!ap || ap.placed) {
         slot.classList.add('empty');
       } else {
@@ -1294,17 +1414,17 @@ class BlockBlastApp {
     if (!overlay || !title) return;
 
     overlay.classList.remove('hidden');
-    title.textContent = 'READY';
+    title.textContent = i18n.t('readyTitle');
     title.style.color = '#fbbf24';
     title.style.textShadow = '0 0 35px rgba(251, 191, 36, 0.9)';
-    if (subtitle) subtitle.textContent = 'CHUẨN BỊ CHIẾN ĐẤU';
+    if (subtitle) subtitle.textContent = i18n.t('readySubtitle');
     sound.playCountdownBeep(false);
 
     setTimeout(() => {
-      title.textContent = 'GO!';
+      title.textContent = i18n.t('goTitle');
       title.style.color = '#10b981';
       title.style.textShadow = '0 0 45px rgba(16, 185, 129, 1.0)';
-      if (subtitle) subtitle.textContent = 'TRẬN ĐẤU BẮT ĐẦU!';
+      if (subtitle) subtitle.textContent = i18n.t('goSubtitle');
       sound.playCountdownBeep(true);
       this.renderer.triggerScreenShake(12);
 

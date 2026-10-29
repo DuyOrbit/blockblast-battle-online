@@ -28,12 +28,12 @@
       <button id="btnModePvP" class="mode-btn font-cyber">⚔️ ĐẤU 1V1 PVP</button>
     </div>
 
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <button id="btnOpenRoomModal" class="btn-cyber font-cyber" style="padding: 6px 14px; font-size: 12px; background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button id="btnOpenRoomModal" class="btn-cyber font-cyber" style="padding: 6px 12px; font-size: 11px; background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);">
         👥 PHÒNG BẠN BÈ
       </button>
 
-      <button id="btnOpenLeaderboard" class="btn-cyber-outline font-cyber" style="padding: 6px 12px; font-size: 12px; color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
+      <button id="btnOpenLeaderboard" class="btn-cyber-outline font-cyber" style="padding: 6px 12px; font-size: 11px; color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
         🏆 XẾP HẠNG
       </button>
 
@@ -42,7 +42,12 @@
         <span id="headerPlayerElo" class="elo-tag font-cyber">1000 ELO</span>
       </div>
 
-      <button id="btnHowToPlay" class="btn-icon" title="Hướng dẫn chơi">?</button>
+      <button id="btnLangToggle" class="btn-cyber-outline font-cyber" style="padding: 5px 10px; font-size: 11px; color: #38bdf8; border-color: rgba(6, 182, 212, 0.4);" title="Đổi ngôn ngữ / Change Language">
+        🇬🇧 EN
+      </button>
+
+      <button id="btnShortcuts" class="btn-icon" title="Phím tắt / Keyboard Shortcuts">⌨️</button>
+      <button id="btnHowToPlay" class="btn-icon" title="Hướng dẫn chơi">❓</button>
       <button id="btnToggleSound" class="btn-icon" title="Bật/Tắt âm thanh">🔊</button>
       <button id="btnFindMatch" class="btn-cyber font-cyber" style="padding: 7px 14px; font-size: 12px; display: none;">
         TÌM TRẬN 1V1
@@ -148,7 +153,7 @@
           ⭐
         </div>
         <div>
-          <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Điểm Hiện Tại</span>
+          <span id="soloScoreTitle" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Điểm Hiện Tại</span>
           <div style="display: flex; align-items: baseline; gap: 8px;">
             <span id="soloScoreDisplay" class="score-display font-cyber">0</span>
             <span id="soloComboBadge" style="display: none; font-size: 11px; font-weight: 800; color: #f59e0b; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; padding: 1px 6px; border-radius: 4px;">
@@ -160,14 +165,14 @@
 
       <!-- Best High Score -->
       <div class="match-timer-box" style="border-color: rgba(251, 191, 36, 0.3);">
-        <span style="font-size: 10px; font-weight: 700; color: #fbbf24; letter-spacing: 1px;">KỶ LỤC CỦA BẠN</span>
+        <span id="soloBestTitle" style="font-size: 10px; font-weight: 700; color: #fbbf24; letter-spacing: 1px;">KỶ LỤC CỦA BẠN</span>
         <div id="soloHighScoreDisplay" class="font-cyber" style="font-size: 26px; font-weight: 900; color: #fbbf24;">0</div>
       </div>
 
       <!-- Lines Cleared -->
       <div class="player-panel opponent" style="justify-content: flex-end;">
         <div>
-          <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Số Dòng Đã Ăn</span>
+          <span id="soloLinesTitle" style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Số Dòng Đã Ăn</span>
           <div class="score-display font-cyber" id="soloLinesDisplay" style="color: #10b981; text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);">
             0
           </div>
@@ -180,7 +185,7 @@
 
     <!-- Boards Arena Grid -->
     <div class="boards-grid">
-      <!-- Main Board (Interactive Canvas Stage) -->
+      <!-- Main Board (Interactive Canvas Stage & Dock) -->
       <div class="main-board-wrapper">
         <div class="canvas-stage">
           <!-- Incoming Garbage Danger Gauge (TETR.IO Style) -->
@@ -201,9 +206,15 @@
         <!-- Mobile-Optimized Pieces Dock: Directly attached below board canvas -->
         <div id="pieceDockCard" class="cyber-card dock-card-container">
           <div id="pieceDock" class="dock-wrapper">
-            <div class="dock-slot" data-index="0"></div>
-            <div class="dock-slot" data-index="1"></div>
-            <div class="dock-slot" data-index="2"></div>
+            <div class="dock-slot" data-index="0">
+              <span class="dock-key-badge font-cyber">1</span>
+            </div>
+            <div class="dock-slot" data-index="1">
+              <span class="dock-key-badge font-cyber">2</span>
+            </div>
+            <div class="dock-slot" data-index="2">
+              <span class="dock-key-badge font-cyber">3</span>
+            </div>
           </div>
         </div>
       </div>
@@ -212,7 +223,7 @@
       <div id="pvpSidePanel" class="side-panel" style="display: none;">
         <div class="opp-board-wrapper cyber-card">
           <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: #94a3b8;">
-            <span>BẢNG ĐỐI THỦ</span>
+            <span id="oppBoardTitle">BẢNG ĐỐI THỦ</span>
             <span id="oppLiveStatus" style="color: #10b981;">● TRỰC TIẾP</span>
           </div>
           <canvas id="oppBoardCanvas" class="opp-canvas" width="200" height="200"></canvas>
@@ -225,7 +236,7 @@
 
         <!-- Emote Panel -->
         <div class="cyber-card" style="padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: center;">
-          <span style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase;">Cảm xúc</span>
+          <span id="emotesTitle" style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase;">Cảm xúc</span>
           <div class="emote-bar">
             <button class="emote-btn" data-emote="🔥">🔥</button>
             <button class="emote-btn" data-emote="😎">😎</button>
@@ -239,35 +250,35 @@
       <!-- Side Panel: Solo Info & Stats (Solo Mode) -->
       <div id="soloSidePanel" class="side-panel">
         <div class="cyber-card" style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
-          <div style="font-size: 12px; font-weight: 800; color: #38bdf8; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
+          <div id="soloSideStatsTitle" style="font-size: 12px; font-weight: 800; color: #38bdf8; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 8px;">
             THỐNG KÊ LƯỢT CHƠI
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 13px; color: #94a3b8;">Combo dài nhất:</span>
+            <span id="soloSideMaxComboLabel" style="font-size: 13px; color: #94a3b8;">Combo dài nhất:</span>
             <span id="soloSideMaxCombo" class="font-cyber" style="color: #f59e0b; font-weight: 800;">x0</span>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 13px; color: #94a3b8;">Dòng phá hủy:</span>
+            <span id="soloSideLinesLabel" style="font-size: 13px; color: #94a3b8;">Dòng phá hủy:</span>
             <span id="soloSideLines" class="font-cyber" style="color: #10b981; font-weight: 800;">0</span>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 13px; color: #94a3b8;">Mục tiêu top 1:</span>
+            <span id="soloSideTargetLabel" style="font-size: 13px; color: #94a3b8;">Mục tiêu top 1:</span>
             <span id="soloTargetScore" class="font-cyber" style="color: #fbbf24; font-weight: 800;">5,480</span>
           </div>
 
           <div style="margin-top: 8px;">
             <button id="btnRestartSolo" class="btn-cyber-outline font-cyber" style="width: 100%; padding: 10px; font-size: 12px; color: #38bdf8; border-color: rgba(6, 182, 212, 0.4);">
-              🔄 CHƠI LẠI TỪ ĐẦU
+              🔄 CHƠI LẠI TỪ ĐẦU (R)
             </button>
           </div>
         </div>
 
         <!-- Quick Help Card -->
         <div class="cyber-card" style="padding: 14px; font-size: 12px; line-height: 1.5; color: #94a3b8;">
-          <span style="color: #38bdf8; font-weight: 700;">💡 Mẹo chơi:</span> Ăn nhiều hàng cùng lúc hoặc ăn liên tục ở các lượt kế tiếp để kích hoạt <strong style="color: #f59e0b;">Combo Nhân Điểm</strong> cực khủng!
+          <span id="soloTipTitle" style="color: #38bdf8; font-weight: 700;">💡 Mẹo chơi:</span> <span id="soloTipContent">Ăn nhiều hàng cùng lúc hoặc ăn liên tục ở các lượt kế tiếp để kích hoạt <strong style="color: #f59e0b;">Combo Nhân Điểm</strong> cực khủng!</span>
         </div>
       </div>
     </div>
@@ -513,6 +524,83 @@
           </button>
         </div>
       </div>
+    </div>
+  <!-- Keyboard Shortcuts Guide Modal -->
+  <div id="shortcutsModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card cyber-card-glow" style="max-width: 520px; text-align: left;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(56, 189, 248, 0.2); padding-bottom: 12px;">
+        <div>
+          <h2 id="shortcutsModalTitle" class="font-cyber" style="color: #38bdf8; font-size: 18px; letter-spacing: 1px;">
+            ⌨️ HƯỚNG DẪN ĐIỀU KHIỂN BÀN PHÍM
+          </h2>
+          <p id="shortcutsModalSubtitle" style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
+            Thi đấu thể thao điện tử với tốc độ tối đa!
+          </p>
+        </div>
+        <button id="btnCloseShortcutsX" class="btn-icon">✕</button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; margin: 16px 0;">
+        <div class="shortcut-row">
+          <div class="keys-group">
+            <span class="keycap font-cyber">1</span>
+            <span class="keycap font-cyber">2</span>
+            <span class="keycap font-cyber">3</span>
+          </div>
+          <div id="key123Desc" class="shortcut-desc">Chọn khối tương ứng ở khay dock</div>
+        </div>
+
+        <div class="shortcut-row">
+          <div class="keys-group">
+            <span class="keycap font-cyber">W</span>
+            <span class="keycap font-cyber">A</span>
+            <span class="keycap font-cyber">S</span>
+            <span class="keycap font-cyber">D</span>
+            <span style="font-size: 11px; color: #64748b; margin: 0 2px;">/</span>
+            <span class="keycap font-cyber">↑</span>
+            <span class="keycap font-cyber">←</span>
+            <span class="keycap font-cyber">↓</span>
+            <span class="keycap font-cyber">→</span>
+          </div>
+          <div id="keyMoveDesc" class="shortcut-desc">Di chuyển vị trí đặt gạch trên bàn cờ</div>
+        </div>
+
+        <div class="shortcut-row">
+          <div class="keys-group">
+            <span class="keycap font-cyber" style="min-width: 60px;">SPACE</span>
+            <span style="font-size: 11px; color: #64748b; margin: 0 2px;">/</span>
+            <span class="keycap font-cyber" style="min-width: 55px;">ENTER</span>
+          </div>
+          <div id="keyPlaceDesc" class="shortcut-desc">Thả / Đặt khối gạch vào bàn cờ</div>
+        </div>
+
+        <div class="shortcut-row">
+          <div class="keys-group">
+            <span class="keycap font-cyber" style="min-width: 48px;">TAB</span>
+          </div>
+          <div id="keyTabDesc" class="shortcut-desc">Luân chuyển nhanh sang khối kế tiếp</div>
+        </div>
+
+        <div class="shortcut-row">
+          <div class="keys-group">
+            <span class="keycap font-cyber">ESC</span>
+            <span style="font-size: 11px; color: #64748b; margin: 0 2px;">/</span>
+            <span class="keycap font-cyber">C</span>
+          </div>
+          <div id="keyCancelDesc" class="shortcut-desc">Hủy chọn / Bỏ khối gạch xuống</div>
+        </div>
+
+        <div class="shortcut-row">
+          <div class="keys-group">
+            <span class="keycap font-cyber">R</span>
+          </div>
+          <div id="keyRestartDesc" class="shortcut-desc">Chơi lại ván mới ngay lập tức</div>
+        </div>
+      </div>
+
+      <button id="btnCloseShortcuts" class="btn-cyber font-cyber" style="width: 100%; padding: 12px;">
+        ĐÃ HIỂU, VÀO CHIẾN!
+      </button>
     </div>
   </div>
 
