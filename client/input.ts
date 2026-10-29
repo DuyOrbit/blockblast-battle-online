@@ -59,6 +59,10 @@ export class InputManager {
     this.setupKeyboardListeners();
   }
 
+  public isSlotActive(index: number): boolean {
+    return (this.isDragging && this.draggedIndex === index) || (this.selectedPieceIndex === index);
+  }
+
   public setGrid(grid: BoardGrid | null) {
     this.currentGrid = grid;
   }
@@ -72,6 +76,7 @@ export class InputManager {
     this.dragAvatar.className = 'drag-avatar';
     this.dragAvatar.style.position = 'fixed';
     this.dragAvatar.style.pointerEvents = 'none';
+    this.dragAvatar.style.touchAction = 'none';
     this.dragAvatar.style.zIndex = '9999';
     this.dragAvatar.style.display = 'none';
     this.dragAvatar.style.transform = 'translate(-50%, -50%)';
@@ -457,6 +462,7 @@ export class InputManager {
       this.renderAvatarPiece(piece);
       const offsetY = this.getTouchOffsetY(piece);
       this.updateDragPosition(clientX, clientY + offsetY);
+      this.handleCanvasMove(clientX, clientY + offsetY);
       this.updateDockSelectionUI(index);
 
       if (this.handlers.onPieceSelect) {

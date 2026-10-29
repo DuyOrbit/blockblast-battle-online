@@ -44,6 +44,10 @@ body {
   font-family: 'Orbitron', monospace, sans-serif;
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* Glassmorphism containers */
 .cyber-card {
   background: var(--bg-card);
@@ -808,65 +812,88 @@ body {
 }
 
 @media (max-width: 480px) {
+  html, body {
+    height: 100%;
+    min-height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+
   .app-header {
-    padding: 4px 8px;
-    gap: 6px;
+    padding: 3px 6px;
+    gap: 4px;
+    min-height: 36px;
+    flex-shrink: 0;
   }
   .logo-container {
     display: none;
   }
+  .mode-switcher {
+    padding: 2px;
+    gap: 2px;
+  }
   .mode-btn {
-    padding: 4px 8px;
+    padding: 3px 6px;
     font-size: 10px;
+  }
+  #btnOpenRoomModal, #btnOpenLeaderboard {
+    padding: 3px 6px !important;
+    font-size: 10px !important;
   }
   #userProfile {
     display: none !important;
   }
   .btn-icon {
-    width: 30px;
-    height: 30px;
-    font-size: 13px;
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
   }
+
   .arena-container {
-    padding: 4px 2px;
-    gap: 6px;
+    padding: 2px 4px;
+    gap: 4px;
+    flex: 1;
+    overflow: hidden;
+    justify-content: flex-start;
   }
 
   /* Compact 1-line Solo HUD on mobile */
-  #soloHud.battle-hud {
+  #soloHud.battle-hud:not(.hidden) {
     display: flex !important;
     flex-direction: row;
     justify-content: space-around;
     align-items: center;
-    padding: 4px 8px;
+    padding: 3px 8px;
     border-radius: 8px;
-    min-height: 44px;
-    gap: 6px;
+    min-height: 38px;
+    gap: 4px;
   }
   #soloHud .player-panel {
     gap: 4px;
     align-items: center;
   }
   #soloHud .player-panel > div:first-child {
-    width: 26px !important;
-    height: 26px !important;
-    font-size: 12px !important;
+    width: 24px !important;
+    height: 24px !important;
+    font-size: 11px !important;
     border-radius: 6px;
   }
   #soloHud .score-display {
-    font-size: 18px !important;
+    font-size: 16px !important;
   }
   #soloHud .match-timer-box {
     grid-column: auto;
     order: 0;
-    padding: 2px 8px !important;
+    padding: 2px 6px !important;
     border-radius: 6px !important;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
   }
   #soloHud #soloHighScoreDisplay {
-    font-size: 18px !important;
+    font-size: 16px !important;
   }
 
   .mobile-quick-restart {
@@ -881,6 +908,156 @@ body {
     cursor: pointer;
   }
 
+  /* Compact 1-line PvP Battle HUD on mobile */
+  #pvpHud.battle-hud:not(.hidden) {
+    display: grid !important;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 3px 6px;
+    border-radius: 8px;
+    gap: 4px;
+    min-height: 44px;
+  }
+  #pvpHud .player-panel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  #pvpHud .player-panel.opponent {
+    flex-direction: row-reverse;
+  }
+  #pvpHud .player-panel-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  #pvpHud .player-panel-name {
+    font-size: 11px;
+    font-weight: 700;
+    max-width: 58px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+  }
+  #pvpHud .elo-tag {
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+  #pvpHud .score-display {
+    font-size: 14px !important;
+  }
+  #pvpHud .avatar-box {
+    width: 30px !important;
+    height: 30px !important;
+    font-size: 14px !important;
+    border-radius: 6px !important;
+    flex-shrink: 0;
+  }
+  #pvpHud .hp-bar-container {
+    gap: 1px;
+    margin-top: 2px;
+  }
+  #pvpHud .hp-bar-track {
+    height: 7px;
+  }
+  #pvpHud .hp-bar-info {
+    font-size: 8px;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 1px;
+  }
+  #pvpHud .hp-label {
+    font-size: 8px;
+  }
+  #pvpHud .hp-value {
+    font-size: 8px;
+  }
+  #pvpHud .match-timer-box {
+    grid-column: auto;
+    order: 0;
+    padding: 2px 6px;
+    border-radius: 6px;
+    text-align: center;
+  }
+  #pvpHud .match-timer {
+    font-size: 14px !important;
+  }
+  #pvpHud .vs-badge {
+    font-size: 8px;
+    margin-bottom: 0;
+  }
+
+  /* Opponent Side Panel: On mobile, place ABOVE main board as compact control bar */
+  #pvpSidePanel.side-panel:not(.hidden) {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: min(320px, calc(100vw - 12px));
+    padding: 2px 6px;
+    gap: 6px;
+    order: -1 !important;
+    border-radius: 8px;
+    margin: 0 auto;
+  }
+  #pvpSidePanel .opp-board-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  #pvpSidePanel .opp-board-wrapper > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-bottom: 0 !important;
+  }
+  #pvpSidePanel #oppBoardTitle {
+    font-size: 8px !important;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  #pvpSidePanel #oppLiveStatus {
+    font-size: 7px !important;
+  }
+  #pvpSidePanel .opp-canvas {
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 6px;
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.25);
+  }
+  #pvpSidePanel > .cyber-card:last-child {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0 !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 3px;
+  }
+  #pvpSidePanel #emotesTitle {
+    display: none;
+  }
+  #pvpSidePanel .emote-bar {
+    gap: 3px;
+  }
+  #pvpSidePanel .emote-btn {
+    padding: 2px 4px;
+    font-size: 13px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+  }
+
   /* Eliminate the giant void: Hide soloSidePanel on iPhone so board + dock dominate viewport */
   #soloSidePanel {
     display: none !important;
@@ -890,37 +1067,49 @@ body {
   }
 
   .boards-grid {
-    gap: 4px;
+    gap: 2px;
+    width: 100%;
+    align-items: center;
   }
   .main-board-wrapper {
     gap: 4px;
+    width: 100%;
+    align-items: center;
   }
   .canvas-stage {
-    gap: 4px;
+    gap: 2px;
   }
   .main-canvas {
-    width: min(330px, calc(100vw - 12px));
-    height: min(330px, calc(100vw - 12px));
+    width: min(300px, calc(100vw - 16px));
+    height: min(300px, calc(100vw - 16px));
+    max-height: calc(100dvh - 250px);
+    max-width: calc(100dvh - 250px);
+    touch-action: none !important;
   }
   .dock-card-container {
-    max-width: min(330px, calc(100vw - 12px));
-    padding: 2px;
+    max-width: min(300px, calc(100vw - 16px));
+    padding: 2px 4px;
+    margin: 0 auto;
+    touch-action: none !important;
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 8px));
   }
   .dock-wrapper {
     gap: 6px;
-    padding: 4px 4px;
-    min-height: 84px;
+    padding: 2px 4px;
+    min-height: 74px;
+    touch-action: none !important;
   }
   .dock-slot {
-    width: 86px;
-    height: 86px;
-    border-radius: 10px;
+    width: 74px;
+    height: 74px;
+    border-radius: 8px;
+    touch-action: none !important;
   }
   .dock-key-badge {
-    top: 3px;
-    left: 3px;
-    font-size: 9px;
-    padding: 0 4px;
+    top: 2px;
+    left: 2px;
+    font-size: 8px;
+    padding: 0 3px;
   }
   .modal-overlay > div {
     max-width: 95vw !important;

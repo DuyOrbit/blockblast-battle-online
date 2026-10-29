@@ -42,6 +42,8 @@ class BlockBlastApp {
 
   private inMatch: boolean = false;
   private inQueue: boolean = false;
+  private pvpMatchSeed: number = 0;
+  private renderedPieceKeys: (string | null)[] = [null, null, null];
 
   // Custom Room & Spectator State
   private currentRoomCode: string | null = null;
@@ -601,16 +603,20 @@ class BlockBlastApp {
       this.spectatorBanner.style.display = 'none';
       this.pieceDock.style.display = 'flex';
 
-      this.soloHud.style.display = 'grid';
+      this.soloHud.classList.remove('hidden');
+      this.soloHud.style.display = '';
+      this.pvpHud.classList.add('hidden');
       this.pvpHud.style.display = 'none';
-      this.soloSidePanel.style.display = 'flex';
+      this.soloSidePanel.classList.remove('hidden');
+      this.soloSidePanel.style.display = '';
+      this.pvpSidePanel.classList.add('hidden');
       this.pvpSidePanel.style.display = 'none';
 
       if (!this.soloBoard) {
         this.startSoloGame();
       } else {
         this.inputManager.setGrid(this.soloBoard.grid);
-        this.renderDockPieces(this.soloBoard.activePieces);
+        this.renderDockPieces(this.soloBoard.activePieces, true);
       }
     } else if (mode === 'PVP') {
       this.btnModeSolo.classList.remove('active');
@@ -619,15 +625,20 @@ class BlockBlastApp {
       this.spectatorBanner.style.display = 'none';
       this.pieceDock.style.display = 'flex';
 
+      this.soloHud.classList.add('hidden');
       this.soloHud.style.display = 'none';
-      this.pvpHud.style.display = 'grid';
+      this.pvpHud.classList.remove('hidden');
+      this.pvpHud.style.display = '';
+      this.soloSidePanel.classList.add('hidden');
       this.soloSidePanel.style.display = 'none';
-      this.pvpSidePanel.style.display = 'flex';
+      this.pvpSidePanel.classList.remove('hidden');
+      this.pvpSidePanel.style.display = '';
 
       if (this.pvpLocalBoard) {
         this.inputManager.setGrid(this.pvpLocalBoard.grid);
-        this.renderDockPieces(this.pvpLocalBoard.activePieces);
+        this.renderDockPieces(this.pvpLocalBoard.activePieces, true);
       } else {
+        this.renderedPieceKeys = [null, null, null];
         this.dockSlots.forEach(s => {
           s.innerHTML = '';
           s.classList.add('empty');
@@ -640,12 +651,17 @@ class BlockBlastApp {
       this.spectatorBanner.style.display = 'flex';
       this.pieceDock.style.display = 'none'; // Spectators don't have piece dock
 
+      this.soloHud.classList.add('hidden');
       this.soloHud.style.display = 'none';
-      this.pvpHud.style.display = 'grid';
+      this.pvpHud.classList.remove('hidden');
+      this.pvpHud.style.display = '';
+      this.soloSidePanel.classList.add('hidden');
       this.soloSidePanel.style.display = 'none';
-      this.pvpSidePanel.style.display = 'flex';
+      this.pvpSidePanel.classList.remove('hidden');
+      this.pvpSidePanel.style.display = '';
       this.inputManager.setGrid(null);
     }
+    this.renderer.resizeCanvases();
   }
 
   // --- Solo Mode Implementation ---
@@ -1048,6 +1064,7 @@ class BlockBlastApp {
         this.roomModal.classList.add('hidden');
         this.currentMatchId = msg.matchId;
         this.opponentInfo = msg.opponent;
+        this.pvpMatchSeed = msg.seed;
 
         this.switchMode('PVP');
 
@@ -1142,19 +1159,10 @@ class BlockBlastApp {
           }
           this.renderer.spawnLineClearParticles(msg.rows, msg.cols);
           this.renderer.addFloatingText(msg.count >= 2 ? `DOUBLE! +${msg.pointsEarned}` : `+${msg.pointsEarned}`, 220, 180, '#38bdf8', 22);
-        } else if (this.currentMode === 'PVP' && msg.playerId === this.myPlayerId) {
+        } else if (this.currentMode === 'PVP' && msg.playerId !== this.myPlayerId) {
           sound.playLineClear(msg.comboStreak);
           if (msg.count >= 2) {
             sound.playMultiClear(msg.count, msg.comboStreak);
-            this.renderer.triggerScreenShake(msg.count * 5);
-          }
-          this.renderer.spawnLineClearParticles(msg.rows, msg.cols);
-
-          const clearTitle = msg.count === 1 ? '+100' : msg.count === 2 ? 'DOUBLE! +300' : msg.count === 3 ? 'TRIPLE! +600' : 'MEGA CLEAR! +1000';
-          this.renderer.addFloatingText(clearTitle, 220, 180, '#38bdf8', 24);
-
-          if (msg.comboStreak >= 2) {
-            this.renderer.addFloatingText(`COMBO x${msg.comboStreak}!`, 220, 220, '#f59e0b', 28);
           }
         }
         break;
@@ -1293,7 +1301,18 @@ class BlockBlastApp {
     if (this.currentMode === 'SOLO') {
       this.handleSoloPlacePiece(pieceIndex, x, y);
     } else if (this.currentMode === 'PVP') {
-      const piece = this.pvpLocalBoard?.activePieces[pieceIndex]?.piece;
+      if (!this.pvpLocalBoard || this.pvpLocalBoard.isKnockedOut) return;
+
+      const activePiece = this.pvpLocalBoard.activePieces[pieceIndex];
+      if (!activePiece || activePiece.placed) return;
+
+      const piece = activePiece.piece;
+
+      // Optimistic instant placement on local PvP board (0ms latency)!
+      const result = GameEngine.applyMove(this.pvpLocalBoard, pieceIndex, x, y, this.pvpMatchSeed);
+      if (!result.success) return;
+
+      // Register placed cells for squash & stretch bounce animation immediately
       if (piece) {
         const placedCells: { x: number; y: number; color?: string }[] = [];
         for (let r = 0; r < piece.height; r++) {
@@ -1306,6 +1325,28 @@ class BlockBlastApp {
         this.renderer.registerPlacedCells(placedCells);
       }
       sound.playPlace();
+
+      if (result.clearResult && result.clearResult.totalLines > 0) {
+        const cr = result.clearResult;
+        sound.playLineClear(cr.comboStreak);
+        if (cr.totalLines >= 2) {
+          sound.playMultiClear(cr.totalLines, cr.comboStreak);
+          this.renderer.triggerScreenShake(cr.totalLines * 5);
+        }
+        this.renderer.spawnLineClearParticles(cr.rows, cr.cols);
+
+        const clearTitle = cr.totalLines === 1 ? '+100' : cr.totalLines === 2 ? 'DOUBLE! +300' : cr.totalLines === 3 ? 'TRIPLE! +600' : 'MEGA CLEAR! +1000';
+        this.renderer.addFloatingText(clearTitle, 220, 180, '#38bdf8', 24);
+
+        if (cr.comboStreak >= 2) {
+          this.renderer.addFloatingText(`COMBO x${cr.comboStreak}!`, 220, 220, '#f59e0b', 28);
+        }
+      }
+
+      this.localScore.textContent = this.pvpLocalBoard.score.toLocaleString();
+      this.inputManager.setGrid(this.pvpLocalBoard.grid);
+      this.renderDockPieces(this.pvpLocalBoard.activePieces);
+
       this.sendPacket({
         type: 'PLACE_PIECE',
         pieceIndex,
@@ -1315,11 +1356,24 @@ class BlockBlastApp {
     }
   }
 
-  private renderDockPieces(activePieces: (any | null)[]) {
+  private renderDockPieces(activePieces: (any | null)[], force: boolean = false) {
     this.inputManager.setActivePieces(activePieces);
     for (let i = 0; i < 3; i++) {
       const slot = this.dockSlots[i];
       const ap = activePieces[i];
+      const pieceKey = ap && !ap.placed ? `${ap.piece.id}_${ap.piece.color}_${ap.piece.width}x${ap.piece.height}` : null;
+
+      // Don't interrupt if user is actively touching/dragging this slot
+      if (!force && this.inputManager.isSlotActive(i)) {
+        continue;
+      }
+
+      // If slot piece hasn't changed, don't recreate DOM elements!
+      if (!force && this.renderedPieceKeys[i] === pieceKey) {
+        continue;
+      }
+
+      this.renderedPieceKeys[i] = pieceKey;
 
       slot.innerHTML = `<span class="dock-key-badge font-cyber">${i + 1}</span>`;
       if (!ap || ap.placed) {
