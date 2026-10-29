@@ -309,10 +309,12 @@ export class InputManager {
       this.handlers.onPlacePiece(placedIndex, targetX, targetY);
       this.cancelDrag();
 
-      // Automatically select the next unplaced piece for rapid-fire gameplay!
+      // Automatically select next unplaced piece if still actively using keyboard
       setTimeout(() => {
-        this.autoSelectAvailablePiece();
-      }, 60);
+        if (this.isKeyboardActive && this.activePieces.some(ap => ap && !ap.placed)) {
+          this.autoSelectAvailablePiece();
+        }
+      }, 80);
     } else {
       // Trigger temporary red warning shake on ghost
       if (this.currentGhost) {
@@ -390,6 +392,12 @@ export class InputManager {
    */
   public bindDockPiece(cardElement: HTMLElement, piece: PieceShape, index: number) {
     const startInteraction = (clientX: number, clientY: number) => {
+      // If clicking the already selected piece, deselect/toggle it
+      if (this.selectedPieceIndex === index && !this.isDragging) {
+        this.cancelDrag();
+        return;
+      }
+
       this.isKeyboardActive = false;
       this.draggedPiece = piece;
       this.draggedIndex = index;
@@ -574,9 +582,18 @@ export class InputManager {
     const coords = this.getGridCoordinates(clientX, clientY, this.draggedPiece);
     if (coords && this.checkValid(this.draggedPiece, coords.gx, coords.gy)) {
       this.handlers.onPlacePiece(this.draggedIndex, coords.gx, coords.gy);
+      this.cancelDrag();
+    } else {
+      // Releasing outside board / over dock:
+      // Hide the drag avatar and disable active dragging mode,
+      // but KEEP the piece selected for Click-to-Place on the board!
+      this.isDragging = false;
+      if (this.dragAvatar) {
+        this.dragAvatar.style.display = 'none';
+        this.dragAvatar.innerHTML = '';
+      }
+      this.updateDockSelectionUI(this.selectedPieceIndex);
     }
-
-    this.cancelDrag();
   }
 
   public cancelDrag() {

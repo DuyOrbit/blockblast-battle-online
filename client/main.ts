@@ -62,6 +62,8 @@ class BlockBlastApp {
   private btnModePvP = document.getElementById('btnModePvP')!;
   private btnFindMatch = document.getElementById('btnFindMatch')!;
   private btnOpenRoomModal = document.getElementById('btnOpenRoomModal')!;
+  private btnOpenLeaderboard = document.getElementById('btnOpenLeaderboard')!;
+  private pingTimer: number | null = null;
 
   // HUDs
   private pvpHud = document.getElementById('pvpHud')!;
@@ -1346,8 +1348,18 @@ class BlockBlastApp {
           }
         }
 
-        slot.appendChild(gridEl);
-        this.inputManager.bindDockPiece(slot, piece, i);
+        const cardContainer = document.createElement('div');
+        cardContainer.className = 'dock-card-container';
+        cardContainer.style.width = '100%';
+        cardContainer.style.height = '100%';
+        cardContainer.style.display = 'flex';
+        cardContainer.style.alignItems = 'center';
+        cardContainer.style.justifyContent = 'center';
+        cardContainer.style.cursor = 'grab';
+        cardContainer.appendChild(gridEl);
+
+        slot.appendChild(cardContainer);
+        this.inputManager.bindDockPiece(cardContainer, piece, i);
       }
     }
   }
@@ -1448,7 +1460,9 @@ class BlockBlastApp {
             score: this.spectatorBBoard.score,
             comboStreak: this.spectatorBBoard.comboStreak,
             isKnockedOut: this.spectatorBBoard.isKnockedOut,
-            activePiecesCount: this.spectatorBBoard.activePieces.filter(p => p !== null && !p.placed).length
+            activePiecesCount: this.spectatorBBoard.activePieces.filter(p => p !== null && !p.placed).length,
+            hp: (this.spectatorBBoard as any).hp ?? 1000,
+            maxHp: (this.spectatorBBoard as any).maxHp ?? 1000
           } : null,
           null
         );
