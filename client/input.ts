@@ -355,8 +355,8 @@ export class InputManager {
       const targetX = this.cursorX;
       const targetY = this.cursorY;
 
-      this.handlers.onPlacePiece(placedIndex, targetX, targetY);
       this.cancelDrag();
+      this.handlers.onPlacePiece(placedIndex, targetX, targetY);
 
       // Automatically select next unplaced piece if still actively using keyboard
       setTimeout(() => {
@@ -675,8 +675,11 @@ export class InputManager {
     if (this.selectedPieceIndex >= 0 && this.draggedPiece) {
       const coords = this.getGridCoordinates(clientX, clientY, this.draggedPiece);
       if (coords && this.checkValid(this.draggedPiece, coords.gx, coords.gy)) {
-        this.handlers.onPlacePiece(this.selectedPieceIndex, coords.gx, coords.gy);
+        const placedIndex = this.selectedPieceIndex;
+        const targetX = coords.gx;
+        const targetY = coords.gy;
         this.cancelDrag();
+        this.handlers.onPlacePiece(placedIndex, targetX, targetY);
       }
     }
   }
@@ -689,13 +692,17 @@ export class InputManager {
 
     const coords = this.getGridCoordinates(clientX, clientY, this.draggedPiece);
     if (coords && this.checkValid(this.draggedPiece, coords.gx, coords.gy)) {
-      this.handlers.onPlacePiece(this.draggedIndex, coords.gx, coords.gy);
+      const placedIndex = this.draggedIndex;
+      const targetX = coords.gx;
+      const targetY = coords.gy;
       this.cancelDrag();
+      this.handlers.onPlacePiece(placedIndex, targetX, targetY);
     } else {
       // Releasing outside board / over dock:
       // Hide the drag avatar and disable active dragging mode,
       // but KEEP the piece selected for Click-to-Place / Tap-to-Place on the board!
       this.isDragging = false;
+      this.draggedIndex = -1;
       if (this.dragAvatar) {
         this.dragAvatar.style.display = 'none';
         this.dragAvatar.innerHTML = '';

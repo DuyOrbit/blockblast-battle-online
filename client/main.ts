@@ -670,9 +670,10 @@ class BlockBlastApp {
     this.soloBoard = GameEngine.initPlayerBoard('solo_player', this.soloSeed);
     this.soloTotalLines = 0;
     this.soloMaxCombo = 0;
+    this.renderedPieceKeys = [null, null, null];
 
     this.inputManager.setGrid(this.soloBoard.grid);
-    this.renderDockPieces(this.soloBoard.activePieces);
+    this.renderDockPieces(this.soloBoard.activePieces, true);
 
     this.soloScoreDisplay.textContent = '0';
     this.soloLinesDisplay.textContent = '0';
@@ -764,7 +765,10 @@ class BlockBlastApp {
       localStorage.setItem('blockblast_solo_highscore', this.soloHighScore.toString());
     }
 
-    this.renderDockPieces(this.soloBoard.activePieces);
+    if (result.newRoundStarted) {
+      this.renderedPieceKeys = [null, null, null];
+    }
+    this.renderDockPieces(this.soloBoard.activePieces, true);
 
     if (this.soloBoard.isKnockedOut) {
       sound.playDefeat();
@@ -1098,7 +1102,8 @@ class BlockBlastApp {
             incomingDamage: 0
           };
           this.inputManager.setGrid(emptyGrid);
-          this.renderDockPieces(this.pvpLocalBoard.activePieces);
+          this.renderedPieceKeys = [null, null, null];
+          this.renderDockPieces(this.pvpLocalBoard.activePieces, true);
         }
 
         this.oppPlayerName.textContent = msg.opponent.name;
@@ -1367,7 +1372,10 @@ class BlockBlastApp {
 
       this.localScore.textContent = this.pvpLocalBoard.score.toLocaleString();
       this.inputManager.setGrid(this.pvpLocalBoard.grid);
-      this.renderDockPieces(this.pvpLocalBoard.activePieces);
+      if (result.newRoundStarted) {
+        this.renderedPieceKeys = [null, null, null];
+      }
+      this.renderDockPieces(this.pvpLocalBoard.activePieces, true);
 
       this.sendPacket({
         type: 'PLACE_PIECE',
