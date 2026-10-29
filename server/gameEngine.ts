@@ -51,6 +51,7 @@ export class GameEngine {
       grid,
       score: 0,
       comboStreak: 0,
+      comboGraceTurns: 0,
       activePieces,
       isKnockedOut: false,
       lastClearedLines: 0,
@@ -186,10 +187,11 @@ export class GameEngine {
       }
     }
 
-    // 5. Detect and execute line clears
-    const clearResult = this.evaluateAndClearLines(board.grid, board.comboStreak);
+    // 5. Detect and execute line clears with authentic Block Blast combo grace buffer
+    const clearResult = this.evaluateAndClearLines(board.grid, board.comboStreak, board.comboGraceTurns ?? 0);
     board.score += clearResult.pointsEarned;
     board.comboStreak = clearResult.comboStreak;
+    board.comboGraceTurns = (clearResult as any).comboGraceTurns ?? 0;
     board.lastClearedLines = clearResult.totalLines;
 
     // 6. Check if all 3 pieces in active pool are placed -> replenish from deterministic PRNG
@@ -250,7 +252,11 @@ export class GameEngine {
   /**
    * Scan grid for full rows and columns, clear them, compute combo and attack values
    */
-  public static evaluateAndClearLines(grid: BoardGrid, currentCombo: number): LineClearResult {
+  public static evaluateAndClearLines(
+    grid: BoardGrid,
+    currentCombo: number,
+    currentGraceTurns: number = 0
+  ): LineClearResult & { comboGraceTurns: number } {
     const fullRows: number[] = [];
     const fullCols: number[] = [];
 
@@ -288,16 +294,21 @@ export class GameEngine {
     const totalLines = fullRows.length + fullCols.length;
 
     if (totalLines === 0) {
+      // Authentic Block Blast combo grace buffer:
+      // If player cleared lines previously, placing 1 setup piece keeps the combo streak alive!
+      const retainedCombo = currentGraceTurns > 0 ? currentCombo : 0;
+      const remainingGrace = currentGraceTurns > 0 ? currentGraceTurns - 1 : 0;
       return {
         rows: [],
         cols: [],
         totalLines: 0,
         pointsEarned: 0,
-        comboStreak: 0,
+        comboStreak: retainedCombo,
         garbageSent: 0,
         isBoardCleared: false,
         damageDealt: 0,
-        isCritical: false
+        isCritical: false,
+        comboGraceTurns: remainingGrace
       };
     }
 
@@ -382,7 +393,8 @@ export class GameEngine {
       garbageSent,
       isBoardCleared,
       damageDealt,
-      isCritical
+      isCritical,
+      comboGraceTurns: 1 // 1 grace turn buffer awarded
     };
   }
 

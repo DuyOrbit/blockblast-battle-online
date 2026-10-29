@@ -314,27 +314,38 @@ export class CanvasRenderer {
     const cs = this.mainCellSize;
     const boardPx = cs * BOARD_SIZE;
 
-    // Outer glow container with chamfered cyber styling
-    ctx.fillStyle = '#080c18';
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 2;
-    this.roundRect(ctx, ox - 6, oy - 6, boardPx + 12, boardPx + 12, 12);
+    // Authentic Block Blast deep indigo-navy board container with bevel
+    ctx.fillStyle = '#0c1228';
+    ctx.strokeStyle = '#1d2a52';
+    ctx.lineWidth = 3;
+    this.roundRect(ctx, ox - 8, oy - 8, boardPx + 16, boardPx + 16, 16);
     ctx.fill();
     ctx.stroke();
 
-    // Subtle cyber grid backdrop
+    // Subtle inner bevel highlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.lineWidth = 1;
+    this.roundRect(ctx, ox - 6, oy - 6, boardPx + 12, boardPx + 12, 14);
+    ctx.stroke();
+
+    // Authentic Block Blast empty cell wells
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
         const x = ox + c * cs;
         const y = oy + r * cs;
 
-        ctx.fillStyle = (r + c) % 2 === 0 ? '#0d1527' : '#111b33';
-        this.roundRect(ctx, x + 2, y + 2, cs - 4, cs - 4, 6);
+        // Inset cell well
+        ctx.fillStyle = '#141d3b';
+        this.roundRect(ctx, x + 2.5, y + 2.5, cs - 5, cs - 5, 8);
         ctx.fill();
 
-        ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
+        // Inner shadow and subtle edge
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
         ctx.lineWidth = 1;
         ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.strokeRect(x + 3.5, y + 3.5, cs - 7, cs - 7);
       }
     }
 

@@ -731,7 +731,18 @@ class BlockBlastApp {
       this.renderer.addFloatingText(title, 220, 180, '#38bdf8', 24);
 
       if (cr.comboStreak >= 2) {
-        this.renderer.addFloatingText(`${i18n.t('comboText')} x${cr.comboStreak}!`, 220, 220, '#f59e0b', 26);
+        let praise = '';
+        let pColor = '#f59e0b';
+        if (cr.comboStreak === 2) { praise = 'GOOD!'; pColor = '#38bdf8'; }
+        else if (cr.comboStreak === 4) { praise = 'GREAT!'; pColor = '#10b981'; }
+        else if (cr.comboStreak === 6) { praise = 'AMAZING!'; pColor = '#a855f7'; }
+        else if (cr.comboStreak === 8) { praise = 'EXCELLENT!'; pColor = '#f43f5e'; }
+        else if (cr.comboStreak >= 10) { praise = 'UNBELIEVABLE!'; pColor = '#fbbf24'; }
+
+        if (praise) {
+          this.renderer.addFloatingText(praise, 220, 140, pColor, 32);
+        }
+        this.renderer.addFloatingText(`${i18n.t('comboText')} x${cr.comboStreak}!`, 220, 220, '#f59e0b', 28);
       }
     }
 
@@ -1339,6 +1350,17 @@ class BlockBlastApp {
         this.renderer.addFloatingText(clearTitle, 220, 180, '#38bdf8', 24);
 
         if (cr.comboStreak >= 2) {
+          let praise = '';
+          let pColor = '#f59e0b';
+          if (cr.comboStreak === 2) { praise = 'GOOD!'; pColor = '#38bdf8'; }
+          else if (cr.comboStreak === 4) { praise = 'GREAT!'; pColor = '#10b981'; }
+          else if (cr.comboStreak === 6) { praise = 'AMAZING!'; pColor = '#a855f7'; }
+          else if (cr.comboStreak === 8) { praise = 'EXCELLENT!'; pColor = '#f43f5e'; }
+          else if (cr.comboStreak >= 10) { praise = 'UNBELIEVABLE!'; pColor = '#fbbf24'; }
+
+          if (praise) {
+            this.renderer.addFloatingText(praise, 220, 140, pColor, 32);
+          }
           this.renderer.addFloatingText(`COMBO x${cr.comboStreak}!`, 220, 220, '#f59e0b', 28);
         }
       }

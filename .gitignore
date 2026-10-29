@@ -5,3 +5,5 @@ dist-server/
 *.log
 .env
 .env.local
+*.apk
+*.xapk

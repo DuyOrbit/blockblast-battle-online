@@ -44,6 +44,7 @@ export interface BoardState {
   lastDamageDealt?: number;
   lastDamageTaken?: number;
   incomingDamage?: number;
+  comboGraceTurns?: number; // Authentic Block Blast combo grace period buffer
 }
 
 export interface OpponentBoardState {
@@ -60,6 +61,7 @@ export interface OpponentBoardState {
   lastDamageDealt?: number;
   lastDamageTaken?: number;
   incomingDamage?: number;
+  comboGraceTurns?: number;
 }
 
 export interface LineClearResult {

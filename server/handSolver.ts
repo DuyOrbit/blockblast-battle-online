@@ -371,24 +371,19 @@ export class HandSolver {
 
       const path = this.findSolutionPath(grid, candidate);
       if (path.solvable) {
-        // If it requires Step 2 or Step 3 clear (more challenging setup), favor it!
-        if (path.firstClearStep === 2 || path.firstClearStep === 3) {
-          preferredStep2Or3Candidate = candidate;
-          break;
+        bestCandidate = candidate;
+        // Immediate Step 1 clear during combo streak = MAX DOPAMINE!
+        if (comboStreak > 0 && path.firstClearStep === 1) {
+          return candidate;
         }
-
-        if (!bestCandidate) {
-          bestCandidate = candidate;
+        if (path.firstClearStep === 1) {
+          break;
         }
       }
 
       hand = candidate;
     }
 
-    // Return the more challenging Step 2/3 setup if found, otherwise return the Step 1 solution
-    if (preferredStep2Or3Candidate) {
-      return preferredStep2Or3Candidate;
-    }
     if (bestCandidate) {
       return bestCandidate;
     }

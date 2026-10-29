@@ -1,13 +1,15 @@
 /**
- * Web Audio API procedural sound synthesizer for BlockBlast Arena.
- * Pure code synthesis - zero external audio asset dependencies!
- * Inspired by TETR.IO / Lumines / modern arcade rhythm puzzle sound design.
+ * Sound Controller for BlockBlast Arena.
+ * Uses authentic Block Blast mobile audio assets extracted directly from the original APK,
+ * with seamless procedural Web Audio API synthesis as instant zero-latency fallback!
  */
 export class SoundController {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
+  private audioBuffers: Map<string, AudioBuffer> = new Map();
+  private loadingPromises: Map<string, Promise<AudioBuffer | null>> = new Map();
 
-  // Pentatonic musical scale for satisfying ascending combo chimes
+  // Pentatonic musical scale for procedural fallback
   private readonly pentatonicScale = [
     261.63, // C4
     293.66, // D4
@@ -23,7 +25,8 @@ export class SoundController {
   ];
 
   constructor() {
-    // AudioContext will be initialized on first user gesture
+    // Preload audio files as soon as possible
+    this.preloadAudios();
   }
 
   private initContext() {
@@ -36,6 +39,85 @@ export class SoundController {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  private preloadAudios() {
+    const soundList = [
+      'place',
+      'pickup',
+      'streak_1',
+      'streak_2',
+      'streak_3',
+      'streak_4',
+      'streak_5',
+      'streak_6',
+      'streak_7',
+      'streak_8',
+      'streak_9',
+      'streak_10',
+      'good',
+      'great',
+      'amazing',
+      'excellent',
+      'unbelievable',
+      'gameover',
+      'new_record',
+      'restart'
+    ];
+
+    for (const key of soundList) {
+      this.loadSound(key, `/audio/${key}.ogg`);
+    }
+  }
+
+  private async loadSound(key: string, url: string): Promise<AudioBuffer | null> {
+    if (this.audioBuffers.has(key)) {
+      return this.audioBuffers.get(key)!;
+    }
+    if (this.loadingPromises.has(key)) {
+      return this.loadingPromises.get(key)!;
+    }
+
+    const promise = (async () => {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+        const arrayBuf = await resp.arrayBuffer();
+        this.initContext();
+        if (!this.ctx) return null;
+        const audioBuf = await this.ctx.decodeAudioData(arrayBuf);
+        this.audioBuffers.set(key, audioBuf);
+        return audioBuf;
+      } catch (e) {
+        return null;
+      }
+    })();
+
+    this.loadingPromises.set(key, promise);
+    return promise;
+  }
+
+  private playBuffer(
+    buffer: AudioBuffer,
+    volume: number = 1.0,
+    playbackRate: number = 1.0,
+    delaySec: number = 0
+  ) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = playbackRate;
+
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(volume, this.ctx.currentTime + delaySec);
+
+    source.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+
+    source.start(this.ctx.currentTime + delaySec);
   }
 
   public toggleMute(): boolean {
@@ -100,42 +182,48 @@ export class SoundController {
   }
 
   /**
-   * Sound when picking up or selecting a piece (tactile mechanical click)
+   * Authentic Block Blast block pickup / touch sound
    */
   public playPickup() {
     if (this.isMuted) return;
+    const buf = this.audioBuffers.get('pickup');
+    if (buf) {
+      this.playBuffer(buf, 0.45);
+      return;
+    }
+
+    // Procedural fallback
     this.initContext();
     if (!this.ctx) return;
-
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
-
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(380, now);
     osc.frequency.exponentialRampToValueAtTime(720, now + 0.06);
-
     gain.gain.setValueAtTime(0.12, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.07);
-
     osc.connect(gain);
     gain.connect(this.ctx.destination);
-
     osc.start(now);
     osc.stop(now + 0.07);
   }
 
   /**
-   * Punchy tactile snap + bass thud when a piece is legally placed on the board
+   * Authentic Block Blast block placement thud (`s_put.ogg`)
    */
   public playPlace() {
     if (this.isMuted) return;
+    const buf = this.audioBuffers.get('place');
+    if (buf) {
+      this.playBuffer(buf, 0.7);
+      return;
+    }
+
+    // Procedural fallback
     this.initContext();
     if (!this.ctx) return;
-
     const now = this.ctx.currentTime;
-
-    // 1. Click/Snap transient
     const snapOsc = this.ctx.createOscillator();
     const snapGain = this.ctx.createGain();
     snapOsc.type = 'sine';
@@ -148,7 +236,6 @@ export class SoundController {
     snapOsc.start(now);
     snapOsc.stop(now + 0.04);
 
-    // 2. Body thud
     const bodyOsc = this.ctx.createOscillator();
     const bodyGain = this.ctx.createGain();
     bodyOsc.type = 'triangle';
@@ -163,11 +250,41 @@ export class SoundController {
   }
 
   /**
-   * TETR.IO-style ascending pentatonic chime when lines are cleared.
-   * Pitches up as combo builds, creating tremendous dopamine rush!
+   * Authentic Block Blast dopamine streak clearing chord (`e_score_streak_1` to `10.ogg`)
+   * and authentic praise voice shout ("Good!", "Great!", "Amazing!", "Excellent!", "Unbelievable!")
    */
   public playLineClear(combo: number = 1) {
     if (this.isMuted) return;
+
+    const streakIdx = Math.max(1, Math.min(combo, 10));
+    const streakBuf = this.audioBuffers.get(`streak_${streakIdx}`);
+
+    if (streakBuf) {
+      // If combo > 10, pitch up the streak_10 sound for endless dopamine acceleration
+      const pitch = combo > 10 ? 1.0 + Math.min(combo - 10, 10) * 0.05 : 1.0;
+      this.playBuffer(streakBuf, 0.85, pitch);
+
+      // Play authentic voice shout praise synchronized with the chord
+      if (combo === 2) {
+        const v = this.audioBuffers.get('good');
+        if (v) this.playBuffer(v, 0.9, 1.0, 0.15);
+      } else if (combo === 4) {
+        const v = this.audioBuffers.get('great');
+        if (v) this.playBuffer(v, 0.9, 1.0, 0.15);
+      } else if (combo === 6) {
+        const v = this.audioBuffers.get('amazing');
+        if (v) this.playBuffer(v, 0.9, 1.0, 0.15);
+      } else if (combo === 8) {
+        const v = this.audioBuffers.get('excellent');
+        if (v) this.playBuffer(v, 0.9, 1.0, 0.15);
+      } else if (combo >= 10 && (combo % 2 === 0)) {
+        const v = this.audioBuffers.get('unbelievable');
+        if (v) this.playBuffer(v, 0.95, 1.0, 0.15);
+      }
+      return;
+    }
+
+    // Procedural fallback
     this.initContext();
     if (!this.ctx) return;
 
@@ -175,7 +292,6 @@ export class SoundController {
     const noteIndex = Math.min(Math.max(combo - 1, 0), this.pentatonicScale.length - 1);
     const fundamental = this.pentatonicScale[noteIndex];
 
-    // Primary crystal chime tone
     const osc1 = this.ctx.createOscillator();
     const gain1 = this.ctx.createGain();
     osc1.type = 'sine';
@@ -183,20 +299,17 @@ export class SoundController {
     osc1.frequency.exponentialRampToValueAtTime(fundamental * 1.02, now + 0.25);
     gain1.gain.setValueAtTime(0.24, now);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
     osc1.connect(gain1);
     gain1.connect(this.ctx.destination);
     osc1.start(now);
     osc1.stop(now + 0.35);
 
-    // Harmonic bell overtone (2.76x frequency for sparkling glass texture)
     const osc2 = this.ctx.createOscillator();
     const gain2 = this.ctx.createGain();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(fundamental * 2.76, now);
     gain2.gain.setValueAtTime(0.08, now);
     gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-
     osc2.connect(gain2);
     gain2.connect(this.ctx.destination);
     osc2.start(now);
@@ -204,7 +317,7 @@ export class SoundController {
   }
 
   /**
-   * Deep sub-bass drop rumble for heavy line clears (2+ lines or high combo)
+   * Deep sub-bass drop rumble for heavy multi-line clears
    */
   public playSubBassDrop() {
     if (this.isMuted) return;
@@ -230,42 +343,15 @@ export class SoundController {
   }
 
   /**
-   * Powerful ascending power chord + bass impact for multi-line clears (2+ lines)
+   * Powerful multi-line clear sound with sub-bass drop
    */
   public playMultiClear(linesCount: number, combo: number = 1) {
-    if (this.isMuted) return;
-    this.initContext();
-    if (!this.ctx) return;
-
-    // Trigger sub-bass rumble
+    this.playLineClear(combo);
     this.playSubBassDrop();
-
-    const now = this.ctx.currentTime;
-    const baseFreq = 330;
-    const chordIntervals = [1, 1.25, 1.5, 2.0]; // Major triad + octave
-
-    chordIntervals.slice(0, Math.min(linesCount + 1, 4)).forEach((multiplier, idx) => {
-      const osc = this.ctx!.createOscillator();
-      const gain = this.ctx!.createGain();
-
-      osc.type = 'triangle';
-      const freq = baseFreq * multiplier;
-      osc.frequency.setValueAtTime(freq, now + idx * 0.03);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.1, now + idx * 0.03 + 0.35);
-
-      gain.gain.setValueAtTime(0.18, now + idx * 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.03 + 0.4);
-
-      osc.connect(gain);
-      gain.connect(this.ctx!.destination);
-
-      osc.start(now + idx * 0.03);
-      osc.stop(now + idx * 0.03 + 0.4);
-    });
   }
 
   /**
-   * High-octane attack laser projectile sound when sending garbage
+   * High-octane attack projectile sound when sending garbage
    */
   public playAttackWhoosh(isOutgoing: boolean = true) {
     if (this.isMuted) return;
@@ -277,14 +363,12 @@ export class SoundController {
     const gain = this.ctx.createGain();
 
     if (isOutgoing) {
-      // High-tech laser shot
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(880, now);
       osc.frequency.exponentialRampToValueAtTime(220, now + 0.18);
       gain.gain.setValueAtTime(0.16, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
     } else {
-      // Incoming siren impact
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(220, now);
       osc.frequency.linearRampToValueAtTime(580, now + 0.15);
@@ -300,7 +384,7 @@ export class SoundController {
   }
 
   /**
-   * Retro cyber countdown beeps ("READY... GO!")
+   * Countdown beeps ("READY... GO!")
    */
   public playCountdownBeep(isGo: boolean = false) {
     if (this.isMuted) return;
@@ -312,7 +396,6 @@ export class SoundController {
     const gain = this.ctx.createGain();
 
     if (isGo) {
-      // High-pitched GO! laser chime
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(880, now);
       osc.frequency.exponentialRampToValueAtTime(1320, now + 0.25);
@@ -320,7 +403,6 @@ export class SoundController {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       this.playSubBassDrop();
     } else {
-      // Warning beep for "READY"
       osc.type = 'sine';
       osc.frequency.setValueAtTime(440, now);
       gain.gain.setValueAtTime(0.2, now);
@@ -334,74 +416,97 @@ export class SoundController {
     osc.stop(now + (isGo ? 0.35 : 0.15));
   }
 
-  /**
-   * Attack alarm when sending garbage or receiving attack
-   */
   public playAttackAlert() {
     this.playAttackWhoosh(false);
   }
 
   /**
-   * Victory sound sequence
+   * Victory fanfare
    */
   public playVictory() {
     if (this.isMuted) return;
+    const buf = this.audioBuffers.get('new_record');
+    if (buf) {
+      this.playBuffer(buf, 0.8);
+      return;
+    }
+
     this.initContext();
     if (!this.ctx) return;
 
     const now = this.ctx.currentTime;
-    const notes = [261.6, 329.6, 392.0, 523.25, 659.25, 783.99]; // Major flourish
+    const notes = [261.6, 329.6, 392.0, 523.25, 659.25, 783.99];
 
     notes.forEach((freq, i) => {
       const osc = this.ctx!.createOscillator();
       const gain = this.ctx!.createGain();
-
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, now + i * 0.09);
-
       gain.gain.setValueAtTime(0.2, now + i * 0.09);
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.09 + 0.35);
-
       osc.connect(gain);
       gain.connect(this.ctx!.destination);
-
       osc.start(now + i * 0.09);
       osc.stop(now + i * 0.09 + 0.35);
     });
   }
 
   /**
-   * Defeat sound sequence
+   * Authentic Block Blast defeat / game over sound (`s_fail.ogg`)
    */
   public playDefeat() {
     if (this.isMuted) return;
+    const buf = this.audioBuffers.get('gameover');
+    if (buf) {
+      this.playBuffer(buf, 0.85);
+      return;
+    }
+
     this.initContext();
     if (!this.ctx) return;
-
     const now = this.ctx.currentTime;
-    const notes = [392.0, 349.2, 311.1, 261.6]; // descending
+    const notes = [392.0, 349.2, 311.1, 261.6];
 
     notes.forEach((freq, i) => {
       const osc = this.ctx!.createOscillator();
       const gain = this.ctx!.createGain();
-
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(freq, now + i * 0.14);
-
       gain.gain.setValueAtTime(0.12, now + i * 0.14);
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.14 + 0.25);
-
       osc.connect(gain);
       gain.connect(this.ctx!.destination);
-
       osc.start(now + i * 0.14);
       osc.stop(now + i * 0.14 + 0.25);
     });
   }
 
   /**
-   * Impact sound when delivering or receiving HP damage
+   * Authentic new high record fanfare
    */
+  public playNewRecord() {
+    if (this.isMuted) return;
+    const buf = this.audioBuffers.get('new_record');
+    if (buf) {
+      this.playBuffer(buf, 0.85);
+    } else {
+      this.playVictory();
+    }
+  }
+
+  /**
+   * Restart sound
+   */
+  public playRestart() {
+    if (this.isMuted) return;
+    const buf = this.audioBuffers.get('restart');
+    if (buf) {
+      this.playBuffer(buf, 0.7);
+    } else {
+      this.playClick();
+    }
+  }
+
   public playDamageHit(isCritical: boolean = false) {
     if (this.isMuted) return;
     this.initContext();
@@ -425,9 +530,6 @@ export class SoundController {
     osc.stop(now + (isCritical ? 0.25 : 0.15));
   }
 
-  /**
-   * Sound when parrying / mitigating damage
-   */
   public playParryCounter() {
     if (this.isMuted) return;
     this.initContext();
