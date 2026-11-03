@@ -43,6 +43,10 @@
         ➕ Tạo phòng
       </button>
 
+      <button id="btnOpenDonateModal" class="btn-secondary font-cyber" style="color: #fbbf24; border-color: rgba(251, 191, 36, 0.4); display: flex; align-items: center; gap: 6px;" title="Ủng hộ tác giả / Buy me a coffee">
+        ☕ Ủng hộ
+      </button>
+
       <button id="btnOpenLeaderboard" class="btn-secondary font-cyber">
         🏆 Bảng xếp hạng
       </button>
@@ -346,6 +350,20 @@
           <div class="tip-card cyber-card">
             <strong style="color: var(--color-local); display: block; margin-bottom: 4px;">💡 Mẹo chơi</strong>
             Ăn nhiều hàng cùng lúc, hoặc ăn liên tục ở các lượt kế tiếp để kích hoạt combo nhân điểm.
+          </div>
+
+          <!-- Coffee / Donate Card -->
+          <div class="cyber-card" style="padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-color: rgba(251, 191, 36, 0.3); background: linear-gradient(135deg, rgba(17, 27, 51, 0.95), rgba(251, 191, 36, 0.05));">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 24px; filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.4));">☕</span>
+              <div>
+                <div style="font-weight: 700; font-size: 13px; color: var(--color-score);">Buy me a coffee</div>
+                <div class="text-sub" style="font-size: 11px;">Ủng hộ máy chủ & phát triển game</div>
+              </div>
+            </div>
+            <button id="btnSideDonate" class="btn-secondary font-cyber" style="height: 36px; min-height: 36px; padding: 0 12px; font-size: 12px; color: #fbbf24; border-color: rgba(251, 191, 36, 0.4);">
+              Ủng hộ
+            </button>
           </div>
         </div>
 
@@ -689,6 +707,85 @@
 
       <button id="btnCloseShortcuts" class="btn-primary" style="width: 100%;">
         Đã hiểu, vào chiến!
+      </button>
+    </div>
+  </div>
+
+  <!-- Donate / Buy Me a Coffee Modal -->
+  <div id="donateModal" class="modal-overlay hidden">
+    <div class="modal-content cyber-card" style="max-width: 580px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">☕</span>
+          <div>
+            <h2 id="donateModalTitle" class="font-cyber" style="color: var(--color-score); font-size: 18px; margin: 0;">
+              ỦNG HỘ TÁC GIẢ & MÁY CHỦ
+            </h2>
+            <p id="donateModalSubtitle" style="font-size: 12px; color: var(--text-sub); margin: 2px 0 0 0;">
+              Cảm ơn bạn đã đồng hành và tiếp lửa cho BlockBlast Battle Online!
+            </p>
+          </div>
+        </div>
+        <button id="btnCloseDonateModalX" class="btn-icon" style="width: 36px; height: 36px; min-height: 36px;">✕</button>
+      </div>
+
+      <div class="donate-modal-grid" style="margin-top: 16px;">
+        <!-- QR Code Column -->
+        <div class="donate-modal-qr-col">
+          <div class="modal-qr-frame">
+            <img src="./donate.jpg" alt="VietQR Donate - NGUYEN DUY Vietcombank" class="modal-qr-img" />
+          </div>
+          <a href="./donate.jpg" download="blockblast-donate-qr.jpg" class="btn-secondary" style="font-size: 11px; height: 32px; min-height: 32px; padding: 0 10px; width: 100%; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;">
+            📥 Tải ảnh mã QR
+          </a>
+        </div>
+
+        <!-- Bank Details Column -->
+        <div class="donate-modal-info-col">
+          <div class="bank-info-table">
+            <div class="bank-info-row">
+              <span class="text-sub" style="font-size: 12px;">Ngân hàng:</span>
+              <strong style="color: var(--text-main); font-size: 13px;">Vietcombank (VCB)</strong>
+            </div>
+            <div class="bank-info-row">
+              <span class="text-sub" style="font-size: 12px;">Chủ tài khoản:</span>
+              <strong style="color: var(--color-local); font-size: 13px; letter-spacing: 0.5px;">NGUYEN DUY</strong>
+            </div>
+            <div class="bank-info-row">
+              <div>
+                <span class="text-sub" style="font-size: 12px; display: block;">Số tài khoản:</span>
+                <span class="font-cyber" style="color: var(--color-score); font-size: 15px; font-weight: 700;">1072917758</span>
+              </div>
+              <button id="btnCopyStk" class="btn-secondary" style="height: 32px; min-height: 32px; padding: 0 10px; font-size: 11px;">
+                📋 Sao chép
+              </button>
+            </div>
+            <div class="bank-info-row">
+              <div>
+                <span class="text-sub" style="font-size: 12px; display: block;">Lời nhắn / Memo:</span>
+                <span style="color: var(--text-main); font-size: 13px; font-weight: 600;">BlockBlast Donate</span>
+              </div>
+              <button id="btnCopyMemo" class="btn-secondary" style="height: 32px; min-height: 32px; padding: 0 10px; font-size: 11px;">
+                📋 Sao chép
+              </button>
+            </div>
+          </div>
+
+          <div class="donate-thanks-box">
+            <span style="font-size: 18px;">❤️</span>
+            <div style="font-size: 12px; color: var(--text-sub); line-height: 1.5;">
+              Mọi sự ủng hộ dù nhỏ nhất (1 ly trà đá, cà phê) đều là động lực to lớn giúp duy trì máy chủ mượt mà và tiếp tục cập nhật tính năng mới cho cộng đồng!
+            </div>
+          </div>
+
+          <div id="copyDonateToast" style="display: none; padding: 8px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid var(--color-hp); border-radius: var(--radius-btn); color: var(--color-hp); font-size: 12px; text-align: center; font-weight: 600;">
+            ✓ Đã sao chép vào bộ nhớ tạm!
+          </div>
+        </div>
+      </div>
+
+      <button id="btnCloseDonateModal" class="btn-primary" style="width: 100%; margin-top: 16px;">
+        Đóng
       </button>
     </div>
   </div>

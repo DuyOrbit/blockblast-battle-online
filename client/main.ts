@@ -452,6 +452,67 @@ class BlockBlastApp {
       if (e.target === this.shortcutsModal) this.shortcutsModal.classList.add('hidden');
     });
 
+    // Donate Modal
+    const donateModal = document.getElementById('donateModal');
+    const openDonate = () => {
+      if (donateModal) donateModal.classList.remove('hidden');
+      sound.playClick();
+    };
+    const closeDonate = () => {
+      if (donateModal) donateModal.classList.add('hidden');
+    };
+    const btnOpenDonateModal = document.getElementById('btnOpenDonateModal');
+    if (btnOpenDonateModal) btnOpenDonateModal.addEventListener('click', openDonate);
+    const btnSideDonate = document.getElementById('btnSideDonate');
+    if (btnSideDonate) btnSideDonate.addEventListener('click', openDonate);
+    const btnCloseDonateModal = document.getElementById('btnCloseDonateModal');
+    if (btnCloseDonateModal) btnCloseDonateModal.addEventListener('click', closeDonate);
+    const btnCloseDonateModalX = document.getElementById('btnCloseDonateModalX');
+    if (btnCloseDonateModalX) btnCloseDonateModalX.addEventListener('click', closeDonate);
+    if (donateModal) {
+      donateModal.addEventListener('click', (e) => {
+        if (e.target === donateModal) closeDonate();
+      });
+    }
+
+    // Copy STK & Memo
+    const copyDonateToast = document.getElementById('copyDonateToast');
+    const showCopyToast = (text: string) => {
+      const onSuccess = () => {
+        sound.playCombo(1);
+        if (copyDonateToast) {
+          copyDonateToast.style.display = 'block';
+          setTimeout(() => {
+            if (copyDonateToast) copyDonateToast.style.display = 'none';
+          }, 2500);
+        }
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
+          fallbackCopy(text);
+          onSuccess();
+        });
+      } else {
+        fallbackCopy(text);
+        onSuccess();
+      }
+    };
+    const fallbackCopy = (text: string) => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    };
+
+    const btnCopyStk = document.getElementById('btnCopyStk');
+    if (btnCopyStk) btnCopyStk.addEventListener('click', () => showCopyToast('1072917758'));
+    const btnCopyMemo = document.getElementById('btnCopyMemo');
+    if (btnCopyMemo) btnCopyMemo.addEventListener('click', () => showCopyToast('BlockBlast Donate'));
+
     // Tactile micro-clicks for buttons and interactive cards
     document.querySelectorAll('.btn-cyber, .btn-cyber-outline, .mode-btn, .dock-slot, .tab-btn').forEach(el => {
       el.addEventListener('mouseenter', () => {
@@ -477,6 +538,8 @@ class BlockBlastApp {
     this.btnModePvP.textContent = i18n.t('modePvP');
     this.btnOpenRoomModal.textContent = i18n.t('btnCustomRoom');
     this.btnOpenLeaderboard.textContent = i18n.t('btnLeaderboard');
+    const btnOpenDonate = document.getElementById('btnOpenDonateModal');
+    if (btnOpenDonate) btnOpenDonate.textContent = i18n.t('btnDonate');
 
     const soloScoreTitle = document.getElementById('soloScoreTitle');
     if (soloScoreTitle) soloScoreTitle.textContent = i18n.t('currentScore');

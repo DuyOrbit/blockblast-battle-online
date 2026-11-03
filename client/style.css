@@ -1113,6 +1113,85 @@ html, body {
 }
 
 /* ==========================================================================
+   DONATE MODAL & COMPONENTS
+   ========================================================================== */
+.donate-modal-grid {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 600px) {
+  .donate-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.donate-modal-qr-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-qr-frame {
+  width: 100%;
+  max-width: 210px;
+  background: #ffffff;
+  border-radius: var(--radius-btn);
+  padding: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.modal-qr-img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+}
+
+.donate-modal-info-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bank-info-table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-subcard);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-btn);
+  padding: 14px;
+}
+
+.bank-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid rgba(30, 43, 74, 0.4);
+  padding-bottom: 8px;
+}
+
+.bank-info-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.donate-thanks-box {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: var(--radius-btn);
+  padding: 12px;
+}
+
+/* ==========================================================================
    MOBILE RESPONSIVENESS (Matches Mobile Mockup Images)
    ========================================================================== */
 @media (max-width: 992px) {

@@ -15,6 +15,7 @@ export const TRANSLATIONS = {
     modePvP: '⚔️ ĐẤU HẠNG PVP',
     btnLeaderboard: '🏆 BẢNG XẾP HẠNG',
     btnCustomRoom: '🏠 TẠO PHÒNG',
+    btnDonate: '☕ ỦNG HỘ',
     btnShortcuts: '⌨️ PHÍM TẮT',
     langToggle: '🇬🇧 EN',
 
@@ -131,6 +132,7 @@ export const TRANSLATIONS = {
     modePvP: '⚔️ RANKED PVP',
     btnLeaderboard: '🏆 LEADERBOARD',
     btnCustomRoom: '🏠 CUSTOM ROOM',
+    btnDonate: '☕ DONATE',
     btnShortcuts: '⌨️ SHORTCUTS',
     langToggle: '🇻🇳 VI',
 
