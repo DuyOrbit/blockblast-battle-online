@@ -179,10 +179,13 @@ async function finishMatch(
   const newEloA = Math.max(100, oldEloA + deltaA);
   const newEloB = Math.max(100, oldEloB + deltaB);
 
-  // Update DB/Store
-  await playerStore.updatePlayerStats(pA.info.id, newEloA, scoreA === 1);
+  // BUG 4 FIX: Handle draw without penalizing both players as losses
+  const outcomeA: 'WIN' | 'LOSS' | 'DRAW' = scoreA === 1 ? 'WIN' : scoreA === 0 ? 'LOSS' : 'DRAW';
+  const outcomeB: 'WIN' | 'LOSS' | 'DRAW' = scoreA === 0 ? 'WIN' : scoreA === 1 ? 'LOSS' : 'DRAW';
+
+  await playerStore.updatePlayerStats(pA.info.id, newEloA, outcomeA);
   if (!pB.info.isBot) {
-    await playerStore.updatePlayerStats(pB.info.id, newEloB, scoreA === 0);
+    await playerStore.updatePlayerStats(pB.info.id, newEloB, outcomeB);
   }
 
   // Notify Player A
@@ -290,6 +293,12 @@ function startMatch(pair: MatchPairResult): void {
 
           if (garbageSent && garbageSent > 0) {
             GameEngine.injectGarbage(matchSession.playerA.board.grid, garbageSent);
+            // BUG 2 FIX: Check if injected garbage deadlocks Player A
+            if (!GameEngine.hasAnyValidMoves(matchSession.playerA.board.grid, matchSession.playerA.board.activePieces)) {
+              matchSession.playerA.board.isKnockedOut = true;
+              finishMatch(matchSession, botId, 'DEADLOCK');
+              return;
+            }
           }
 
           broadcastMatchState(matchSession);
@@ -427,6 +436,22 @@ wss.on('connection', async (rawWs: WebSocket, req) => {
 
       switch (packet.type) {
         case 'JOIN_QUEUE': {
+          // BUG 5 GUARD: Prevent joining queue while in an active match or room
+          if (playerToMatchMap.has(playerId)) {
+            sendMessage(ws, {
+              type: 'ERROR',
+              message: 'Bạn đang trong một trận đấu dang dở.'
+            });
+            break;
+          }
+          if (roomManager.getRoomByPlayer(playerId)) {
+            sendMessage(ws, {
+              type: 'ERROR',
+              message: 'Bạn đang ở trong phòng bạn bè. Vui lòng rời phòng trước khi tìm trận.'
+            });
+            break;
+          }
+
           const p = await playerStore.createOrUpdatePlayer(playerId, packet.playerName);
           matchmaker.enqueue({
             playerId: p.id,
@@ -456,12 +481,39 @@ wss.on('connection', async (rawWs: WebSocket, req) => {
         }
 
         case 'CREATE_ROOM': {
+          // BUG 5 GUARD: Prevent creating room while in an active match or room
+          if (playerToMatchMap.has(playerId)) {
+            sendMessage(ws, {
+              type: 'ERROR',
+              message: 'Bạn đang trong một trận đấu dang dở.'
+            });
+            break;
+          }
+          if (roomManager.getRoomByPlayer(playerId)) {
+            sendMessage(ws, {
+              type: 'ERROR',
+              message: 'Bạn đang ở trong một phòng khác. Vui lòng rời phòng trước.'
+            });
+            break;
+          }
+          matchmaker.removeFromQueue(playerId);
+
           const p = await playerStore.createOrUpdatePlayer(playerId, packet.playerName);
           roomManager.createRoom({ id: p.id, name: p.name, elo: p.elo }, ws);
           break;
         }
 
         case 'JOIN_ROOM': {
+          // BUG 5 GUARD: Prevent joining room while in an active match
+          if (playerToMatchMap.has(playerId)) {
+            sendMessage(ws, {
+              type: 'ERROR',
+              message: 'Bạn đang trong một trận đấu dang dở.'
+            });
+            break;
+          }
+          matchmaker.removeFromQueue(playerId);
+
           const p = await playerStore.createOrUpdatePlayer(playerId, packet.playerName);
           const res = roomManager.joinRoom(packet.roomCode, { id: p.id, name: p.name, elo: p.elo }, ws, packet.asSpectator);
           if (!res.success) {
@@ -578,6 +630,12 @@ wss.on('connection', async (rawWs: WebSocket, req) => {
           // If garbage attacks triggered, inject onto opponent
           if (moveResult.garbageSentToOpponent > 0) {
             GameEngine.injectGarbage(opponentSide.board.grid, moveResult.garbageSentToOpponent);
+            // BUG 2 FIX: Check if injected garbage deadlocks the opponent
+            if (!GameEngine.hasAnyValidMoves(opponentSide.board.grid, opponentSide.board.activePieces)) {
+              opponentSide.board.isKnockedOut = true;
+              finishMatch(match, playerId, 'DEADLOCK');
+              return;
+            }
           }
 
           // Check Knockout (KO) due to board deadlock
@@ -625,6 +683,12 @@ wss.on('connection', async (rawWs: WebSocket, req) => {
   });
 
   ws.on('close', () => {
+    // BUG 3 FIX: If another connection for this playerId has already taken over,
+    // this close event belongs to an old/stale socket. Do not touch state or surrender!
+    if (clientSockets.get(playerId) !== ws) {
+      return;
+    }
+
     clientSockets.delete(playerId);
     matchmaker.removeFromQueue(playerId);
     roomManager.removePlayer(playerId);

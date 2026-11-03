@@ -7,13 +7,18 @@ export interface StoredPlayer {
   matchesPlayed: number;
   wins: number;
   losses: number;
+  draws?: number;
   createdAt: number;
 }
 
 export interface IPlayerStore {
   getPlayer(id: string): Promise<StoredPlayer | null>;
   createOrUpdatePlayer(id: string, name: string, elo?: number): Promise<StoredPlayer>;
-  updatePlayerStats(id: string, newElo: number, won: boolean): Promise<StoredPlayer>;
+  updatePlayerStats(
+    id: string,
+    newElo: number,
+    outcome: 'WIN' | 'LOSS' | 'DRAW' | boolean
+  ): Promise<StoredPlayer>;
   getTopLeaderboard(limit?: number): Promise<StoredPlayer[]>;
 }
 
@@ -44,6 +49,7 @@ export class InMemoryPlayerStore implements IPlayerStore {
         matchesPlayed: s.wins + s.losses,
         wins: s.wins,
         losses: s.losses,
+        draws: 0,
         createdAt: Date.now() - 86400000
       });
     }
@@ -89,6 +95,7 @@ export class InMemoryPlayerStore implements IPlayerStore {
         matchesPlayed: 0,
         wins: 0,
         losses: 0,
+        draws: 0,
         createdAt: Date.now()
       };
       this.players.set(id, existing);
@@ -98,12 +105,22 @@ export class InMemoryPlayerStore implements IPlayerStore {
     return existing;
   }
 
-  public async updatePlayerStats(id: string, newElo: number, won: boolean): Promise<StoredPlayer> {
+  public async updatePlayerStats(
+    id: string,
+    newElo: number,
+    outcome: 'WIN' | 'LOSS' | 'DRAW' | boolean
+  ): Promise<StoredPlayer> {
     const player = await this.createOrUpdatePlayer(id, `Player_${id.slice(0, 4)}`);
     player.elo = Math.max(100, Math.round(newElo));
     player.matchesPlayed += 1;
-    if (won) {
+    if (player.draws === undefined) {
+      player.draws = 0;
+    }
+
+    if (outcome === 'WIN' || outcome === true) {
       player.wins += 1;
+    } else if (outcome === 'DRAW') {
+      player.draws += 1;
     } else {
       player.losses += 1;
     }

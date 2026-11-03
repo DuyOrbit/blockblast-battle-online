@@ -201,12 +201,21 @@ export class RoomManager {
     const room = this.rooms.get(roomCode);
     if (!room) return { success: false, error: 'Phòng không tồn tại' };
 
+    if (room.status === 'PLAYING') {
+      return { success: false, error: 'Trận đang diễn ra' };
+    }
+
     if (room.host.info.id !== playerId) {
       return { success: false, error: 'Chỉ có Trưởng phòng (Host) mới có quyền bắt đầu trận đấu' };
     }
 
     if (!room.guest) {
       return { success: false, error: 'Cần đủ 2 người chơi để bắt đầu trận đấu' };
+    }
+
+    if (room.timer) {
+      clearInterval(room.timer);
+      room.timer = null;
     }
 
     room.status = 'PLAYING';
@@ -335,6 +344,12 @@ export class RoomManager {
     // Garbage attack
     if (moveResult.garbageSentToOpponent > 0) {
       GameEngine.injectGarbage(opponentBoard.grid, moveResult.garbageSentToOpponent);
+      // BUG 2 FIX: Check if injected garbage deadlocks the opponent
+      if (!GameEngine.hasAnyValidMoves(opponentBoard.grid, opponentBoard.activePieces)) {
+        opponentBoard.isKnockedOut = true;
+        this.finishRoomMatch(room, 'DEADLOCK', playerId);
+        return;
+      }
     }
 
     // Check KO
