@@ -423,6 +423,27 @@ class BlockBlastApp {
     // Language Toggle
     this.btnLangToggle.addEventListener('click', () => this.toggleLanguage());
 
+    // New UX/UI Action Listeners
+    const btnSoloSeeAll = document.getElementById('btnSoloSeeAllLeaderboard');
+    if (btnSoloSeeAll) {
+      btnSoloSeeAll.addEventListener('click', () => this.openLeaderboard());
+    }
+
+    const onSurrender = () => {
+      if (confirm('Bạn có chắc chắn muốn đầu hàng không?')) {
+        this.sendPacket({ type: 'SURRENDER' });
+      }
+    };
+    const btnSurrender = document.getElementById('btnSurrenderMatch');
+    if (btnSurrender) btnSurrender.addEventListener('click', onSurrender);
+    const btnMobileSurrender = document.getElementById('btnMobileSurrender');
+    if (btnMobileSurrender) btnMobileSurrender.addEventListener('click', onSurrender);
+
+    const btnMobileRestartSolo = document.getElementById('btnMobileRestartSolo');
+    if (btnMobileRestartSolo) btnMobileRestartSolo.addEventListener('click', () => this.startSoloGame());
+    const btnMobileCreateRoom = document.getElementById('btnMobileCreateRoom');
+    if (btnMobileCreateRoom) btnMobileCreateRoom.addEventListener('click', () => this.openRoomModal('CREATE'));
+
     // Shortcuts Modal
     this.btnShortcuts.addEventListener('click', () => this.toggleShortcutsModal());
     this.btnCloseShortcuts.addEventListener('click', () => this.shortcutsModal.classList.add('hidden'));
@@ -602,6 +623,11 @@ class BlockBlastApp {
   // Switch between Solo, PvP, and Spectator modes
   private switchMode(mode: GameMode) {
     this.currentMode = mode;
+    const pvpLeftCol = document.getElementById('pvpLeftCol');
+    const soloTopStatus = document.getElementById('soloTopStatus');
+    const mobileSoloActions = document.getElementById('mobileSoloActions');
+    const mobilePvPBar = document.getElementById('mobilePvPBar');
+    const btnMobileSurrender = document.getElementById('btnMobileSurrender');
 
     if (mode === 'SOLO') {
       this.btnModeSolo.classList.add('active');
@@ -618,6 +644,12 @@ class BlockBlastApp {
       this.soloSidePanel.style.display = '';
       this.pvpSidePanel.classList.add('hidden');
       this.pvpSidePanel.style.display = 'none';
+
+      if (pvpLeftCol) pvpLeftCol.style.display = 'none';
+      if (soloTopStatus) soloTopStatus.style.display = 'flex';
+      if (mobileSoloActions) mobileSoloActions.style.display = 'flex';
+      if (mobilePvPBar) mobilePvPBar.style.display = 'none';
+      if (btnMobileSurrender) btnMobileSurrender.style.display = 'none';
 
       if (!this.soloBoard) {
         this.startSoloGame();
@@ -640,6 +672,12 @@ class BlockBlastApp {
       this.soloSidePanel.style.display = 'none';
       this.pvpSidePanel.classList.remove('hidden');
       this.pvpSidePanel.style.display = '';
+
+      if (pvpLeftCol) pvpLeftCol.style.display = 'flex';
+      if (soloTopStatus) soloTopStatus.style.display = 'none';
+      if (mobileSoloActions) mobileSoloActions.style.display = 'none';
+      if (mobilePvPBar) mobilePvPBar.style.display = 'flex';
+      if (btnMobileSurrender) btnMobileSurrender.style.display = 'inline-flex';
 
       if (this.pvpLocalBoard) {
         this.inputManager.setGrid(this.pvpLocalBoard.grid);
@@ -760,16 +798,40 @@ class BlockBlastApp {
     this.soloSideMaxCombo.textContent = `x${this.soloMaxCombo}`;
 
     if (this.soloBoard.comboStreak > 1) {
-      this.soloComboBadge.style.display = 'inline-block';
-      this.soloComboBadge.textContent = `COMBO x${this.soloBoard.comboStreak}`;
+      this.soloComboBadge.style.display = 'inline-flex';
+      this.soloComboBadge.textContent = `⚡ COMBO x${this.soloBoard.comboStreak}`;
     } else {
       this.soloComboBadge.style.display = 'none';
+    }
+
+    const graceNotice = document.getElementById('soloGraceNotice');
+    if (graceNotice) {
+      if (this.soloBoard.comboGraceTurns && this.soloBoard.comboGraceTurns > 0) {
+        graceNotice.textContent = `Còn ${this.soloBoard.comboGraceTurns} lượt đệm để giữ chuỗi`;
+      } else {
+        graceNotice.textContent = '';
+      }
     }
 
     if (this.soloBoard.score > this.soloHighScore) {
       this.soloHighScore = this.soloBoard.score;
       this.soloHighScoreDisplay.textContent = this.soloHighScore.toLocaleString();
       localStorage.setItem('blockblast_solo_highscore', this.soloHighScore.toString());
+    }
+
+    const target = Math.max(this.soloHighScore, 2000);
+    const targetFill = document.getElementById('soloTargetProgressFill');
+    if (targetFill) {
+      const pct = Math.min(100, Math.round((this.soloBoard.score / target) * 100));
+      targetFill.style.width = `${pct}%`;
+    }
+    const diffScore = document.getElementById('soloDiffScore');
+    if (diffScore) {
+      diffScore.textContent = Math.max(0, target - this.soloBoard.score).toLocaleString();
+    }
+    const miniLbScore = document.getElementById('miniLbCurrentUserScore');
+    if (miniLbScore) {
+      miniLbScore.textContent = Math.max(this.soloBoard.score, this.soloHighScore).toLocaleString();
     }
 
     if (result.newRoundStarted) {
@@ -1211,8 +1273,10 @@ class BlockBlastApp {
             const hitTitle = isCrit ? `⚡ BẠO KÍCH! -${damage} HP` : `💥 BỊ TẤN CÔNG! -${damage} HP`;
             this.showAttackBanner(hitTitle);
             this.renderer.addFloatingText(`-${damage} HP!`, 220, 160, '#f43f5e', isCrit ? 32 : 26);
+            this.addCombatLog(`Đối thủ tấn công, bạn mất ${damage} HP`, 'var(--color-opp)');
             if (msg.count > 0) {
               this.updateGarbageGauge(msg.count);
+              this.addCombatLog(`Bạn nhận ${msg.count} khối đá, cần 2 lượt để tan`, 'var(--text-sub)');
             }
           } else {
             sound.playAttackWhoosh(true);
@@ -1224,6 +1288,7 @@ class BlockBlastApp {
             const strikeTitle = isCrit ? `🌟 BẠO KÍCH! -${damage} HP ĐỐI THỦ!` : `⚔️ TẤN CÔNG! -${damage} HP ĐỐI THỦ!`;
             this.showAttackBanner(strikeTitle);
             this.renderer.addFloatingText(`+${damage} DMG!`, 220, 160, '#10b981', isCrit ? 32 : 26);
+            this.addCombatLog(`Bạn tấn công, đối thủ mất ${damage} HP`, 'var(--color-local)');
           }
         }
         break;
@@ -1481,6 +1546,32 @@ class BlockBlastApp {
     this.headerPlayerElo.textContent = `${this.myElo} ELO`;
     this.localPlayerName.textContent = this.myName;
     this.localPlayerElo.textContent = `${this.myElo} ELO`;
+
+    const avatarCircle = document.getElementById('headerAvatarCircle');
+    if (avatarCircle && this.myName) {
+      avatarCircle.textContent = this.myName.charAt(0).toUpperCase();
+    }
+    const localEmoji = document.getElementById('localAvatarEmoji');
+    if (localEmoji && this.myName) {
+      localEmoji.textContent = this.myName.charAt(0).toUpperCase();
+    }
+    const miniLbName = document.getElementById('miniLbCurrentUserName');
+    if (miniLbName && this.myName) {
+      miniLbName.textContent = `${this.myName} (bạn)`;
+    }
+  }
+
+  private addCombatLog(text: string, color = 'var(--text-main)') {
+    const list = document.getElementById('matchLogList');
+    if (!list) return;
+    const item = document.createElement('div');
+    item.className = 'combat-log-item';
+    const time = this.matchTimer ? this.matchTimer.textContent : '03:00';
+    item.innerHTML = `<span style="color: ${color}">${text}</span><span class="combat-log-time">${time}</span>`;
+    list.prepend(item);
+    if (list.children.length > 25) {
+      list.removeChild(list.lastChild!);
+    }
   }
 
   private updateTimerDisplay(remainingSecs: number) {

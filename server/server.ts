@@ -544,6 +544,27 @@ wss.on('connection', async (rawWs: WebSocket, req) => {
           break;
         }
 
+        case 'SURRENDER': {
+          const room = roomManager.getRoomByPlayer(playerId);
+          if (room && room.status === 'PLAYING') {
+            const isHost = room.host.info.id === playerId;
+            const opponentId = isHost ? room.guest?.info.id : room.host.info.id;
+            roomManager.finishRoomMatch(room, 'SURRENDER', opponentId);
+            break;
+          }
+
+          const matchId = playerToMatchMap.get(playerId);
+          if (matchId) {
+            const match = activeMatches.get(matchId);
+            if (match && match.status === 'PLAYING') {
+              const isPlayerA = match.playerA.info.id === playerId;
+              const opponentId = isPlayerA ? match.playerB.info.id : match.playerA.info.id;
+              finishMatch(match, opponentId, 'SURRENDER');
+            }
+          }
+          break;
+        }
+
         case 'PLACE_PIECE': {
           const room = roomManager.getRoomByPlayer(playerId);
           if (room) {

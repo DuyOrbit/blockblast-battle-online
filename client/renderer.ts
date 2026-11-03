@@ -198,7 +198,7 @@ export class CanvasRenderer {
     this.shakeAngle = (Math.random() - 0.5) * (this.shakeIntensity * 0.003);
   }
 
-  public addFloatingText(text: string, x: number, y: number, color = '#38bdf8', fontSize = 22) {
+  public addFloatingText(text: string, x: number, y: number, color = '#FBBF24', fontSize = 24) {
     this.floatingTexts.push({
       id: Math.random().toString(),
       text,
@@ -365,38 +365,29 @@ export class CanvasRenderer {
     const cs = this.mainCellSize;
     const boardPx = cs * BOARD_SIZE;
 
-    // Authentic Block Blast deep indigo-navy board container with bevel
-    ctx.fillStyle = '#0c1228';
-    ctx.strokeStyle = '#1d2a52';
-    ctx.lineWidth = 3;
-    this.roundRect(ctx, ox - 8, oy - 8, boardPx + 16, boardPx + 16, 16);
+    // Clean flat board container from new design system (Radius 22px, Card #0C1426, Border #1E2B4A)
+    ctx.fillStyle = '#0C1426';
+    ctx.strokeStyle = '#1E2B4A';
+    ctx.lineWidth = 2;
+    this.roundRect(ctx, ox - 10, oy - 10, boardPx + 20, boardPx + 20, 22);
     ctx.fill();
     ctx.stroke();
 
-    // Subtle inner bevel highlight
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-    ctx.lineWidth = 1;
-    this.roundRect(ctx, ox - 6, oy - 6, boardPx + 12, boardPx + 12, 14);
-    ctx.stroke();
-
-    // Authentic Block Blast empty cell wells
+    // Inset cell wells (Background #111B33, Radius 9px, Border #1E2B4A)
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
         const x = ox + c * cs;
         const y = oy + r * cs;
 
         // Inset cell well
-        ctx.fillStyle = '#141d3b';
-        this.roundRect(ctx, x + 2.5, y + 2.5, cs - 5, cs - 5, 8);
+        ctx.fillStyle = '#111B33';
+        this.roundRect(ctx, x + 2.5, y + 2.5, cs - 5, cs - 5, 9);
         ctx.fill();
 
-        // Inner shadow and subtle edge
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+        // Subtle clean border
+        ctx.strokeStyle = 'rgba(30, 43, 74, 0.55)';
         ctx.lineWidth = 1;
         ctx.stroke();
-
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-        ctx.strokeRect(x + 3.5, y + 3.5, cs - 7, cs - 7);
       }
     }
 
@@ -442,11 +433,11 @@ export class CanvasRenderer {
   }
 
   private drawBlock(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, cell: GridCell, r?: number, c?: number) {
-    const pad = 3;
+    const pad = 2.5;
     const bx = x + pad;
     const by = y + pad;
     const bs = size - pad * 2;
-    const radius = 6;
+    const radius = 9;
 
     ctx.save();
 
@@ -475,33 +466,30 @@ export class CanvasRenderer {
     }
 
     if (cell.isGarbage) {
-      // Stone garbage block styling
+      // Stone garbage block styling from design system
+      const turns = typeof cell.turnsRemaining === 'number' ? cell.turnsRemaining : 2;
+      const isAboutToDissolve = turns === 1;
+
       ctx.fillStyle = '#334155';
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = isAboutToDissolve ? '#FBBF24' : '#64748B';
+      ctx.lineWidth = isAboutToDissolve ? 2.5 : 1.5;
+      if (isAboutToDissolve) {
+        ctx.shadowColor = 'rgba(251, 191, 36, 0.7)';
+        ctx.shadowBlur = 8;
+      }
       this.roundRect(ctx, bx, by, bs, bs, radius);
       ctx.fill();
       ctx.stroke();
 
-      // Stone hatch texture lines
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(bx + 4, by + bs - 4);
-      ctx.lineTo(bx + bs - 4, by + 4);
-      ctx.moveTo(bx + 8, by + bs - 4);
-      ctx.lineTo(bx + bs - 4, by + 8);
-      ctx.stroke();
-
-      // Countdown turns badge
-      if (typeof cell.turnsRemaining === 'number' && cell.turnsRemaining > 0) {
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = `bold ${Math.floor(size * 0.38)}px Orbitron, sans-serif`;
+      // Countdown turns badge in white Chakra Petch 700
+      if (turns > 0) {
+        ctx.fillStyle = '#E8EEF9';
+        ctx.font = `bold ${Math.floor(size * 0.42)}px 'Chakra Petch', sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(245, 158, 11, 0.8)';
-        ctx.shadowBlur = 6;
-        ctx.fillText(`${cell.turnsRemaining}`, bx + bs / 2, by + bs / 2);
+        ctx.shadowColor = isAboutToDissolve ? 'rgba(251, 191, 36, 0.8)' : 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(`${turns}`, bx + bs / 2, by + bs / 2);
       }
     } else {
       const sprite = APK_CUBE_SPRITES[cell.color] || APK_CUBE_SPRITES['#f59e0b'];
@@ -514,7 +502,7 @@ export class CanvasRenderer {
         );
       } else {
         // High quality fallback
-        const cornerRadius = Math.max(5, Math.round(bs * 0.16));
+        const cornerRadius = 9;
         ctx.shadowColor = cell.glowColor || cell.color;
         ctx.shadowBlur = 10;
         ctx.fillStyle = cell.color;
@@ -662,44 +650,19 @@ export class CanvasRenderer {
             const s = cs - 6;
 
             if (isValid) {
-              const sprite = APK_CUBE_SPRITES[piece.color] || APK_CUBE_SPRITES['#f59e0b'];
-
-              // 1. Backing ambient glow & color plate (đảm bảo sáng rõ, không mờ)
+              // Exact golden dashed preview from mockups (Chơi đơn desktop/mobile)
               ctx.save();
-              ctx.fillStyle = hasClear ? 'rgba(250, 204, 21, 0.45)' : (piece.glowColor || 'rgba(6, 182, 212, 0.35)');
-              ctx.shadowColor = hasClear ? '#facc15' : piece.color;
-              ctx.shadowBlur = hasClear ? 18 : 12;
-              this.roundRect(ctx, x, y, s, s, 6);
+              ctx.fillStyle = hasClear ? 'rgba(251, 191, 36, 0.28)' : 'rgba(251, 191, 36, 0.16)';
+              this.roundRect(ctx, x, y, s, s, 9);
               ctx.fill();
-              ctx.restore();
 
-              // 2. Draw authentic 3D Cube sprite with high opacity
-              if (this.isAtlasLoaded && this.atlasImg && sprite) {
-                ctx.save();
-                ctx.globalAlpha = hasClear ? 0.95 : 0.88;
-                ctx.drawImage(this.atlasImg, sprite.x, sprite.y, sprite.w, sprite.h, x, y, s, s);
-                ctx.restore();
-              } else {
-                ctx.save();
-                ctx.fillStyle = piece.color;
-                this.roundRect(ctx, x, y, s, s, 6);
-                ctx.fill();
-                ctx.restore();
-              }
-
-              // 3. Crisp bright glowing border & highlight ring
-              ctx.save();
-              ctx.strokeStyle = hasClear ? '#ffffff' : (piece.glowColor || '#ffffff');
-              ctx.lineWidth = hasClear ? 3 : 2;
-              ctx.shadowColor = hasClear ? '#facc15' : piece.color;
-              ctx.shadowBlur = hasClear ? 18 : 12;
-              this.roundRect(ctx, x, y, s, s, 6);
+              ctx.setLineDash([5, 4]);
+              ctx.strokeStyle = '#FBBF24';
+              ctx.lineWidth = hasClear ? 2.5 : 2.0;
+              ctx.shadowColor = 'rgba(251, 191, 36, 0.6)';
+              ctx.shadowBlur = hasClear ? 10 : 6;
+              this.roundRect(ctx, x, y, s, s, 9);
               ctx.stroke();
-
-              // Inner specular gleam
-              ctx.fillStyle = hasClear ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.22)';
-              this.roundRect(ctx, x + 2, y + 2, s - 4, s - 4, 4);
-              ctx.fill();
               ctx.restore();
             } else {
               // Invalid spot: high-contrast red warning box with X marker
@@ -709,7 +672,7 @@ export class CanvasRenderer {
               ctx.shadowColor = '#f43f5e';
               ctx.shadowBlur = 10;
               ctx.lineWidth = 2;
-              this.roundRect(ctx, x, y, s, s, 6);
+              this.roundRect(ctx, x, y, s, s, 9);
               ctx.fill();
               ctx.stroke();
 
@@ -851,11 +814,11 @@ export class CanvasRenderer {
     const oy = Math.floor((height - cs * BOARD_SIZE) / 2);
 
     ctx.save();
-    // Backdrop
-    ctx.fillStyle = '#080c18';
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 1;
-    this.roundRect(ctx, ox - 2, oy - 2, cs * BOARD_SIZE + 4, cs * BOARD_SIZE + 4, 6);
+    // Backdrop matching Card design
+    ctx.fillStyle = '#0C1426';
+    ctx.strokeStyle = '#1E2B4A';
+    ctx.lineWidth = 1.5;
+    this.roundRect(ctx, ox - 4, oy - 4, cs * BOARD_SIZE + 8, cs * BOARD_SIZE + 8, 14);
     ctx.fill();
     ctx.stroke();
 
@@ -864,14 +827,14 @@ export class CanvasRenderer {
         const x = ox + c * cs;
         const y = oy + r * cs;
 
-        ctx.fillStyle = (r + c) % 2 === 0 ? '#0f172a' : '#131c31';
-        this.roundRect(ctx, x + 1, y + 1, cs - 2, cs - 2, 2);
+        ctx.fillStyle = '#111B33';
+        this.roundRect(ctx, x + 1, y + 1, cs - 2, cs - 2, 4);
         ctx.fill();
 
         if (opponent && opponent.grid && opponent.grid[r][c]) {
           const cell = opponent.grid[r][c]!;
           ctx.fillStyle = cell.isGarbage ? '#475569' : cell.color;
-          this.roundRect(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 3);
+          this.roundRect(ctx, x + 1.5, y + 1.5, cs - 3, cs - 3, 4);
           ctx.fill();
         }
       }
@@ -939,7 +902,7 @@ export class CanvasRenderer {
       ctx.fillStyle = ft.color;
       ctx.shadowColor = ft.glowColor;
       ctx.shadowBlur = 12;
-      ctx.font = `900 ${ft.fontSize}px Orbitron, sans-serif`;
+      ctx.font = `bold ${ft.fontSize}px 'Chakra Petch', sans-serif`;
       ctx.textAlign = 'center';
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();

@@ -95,7 +95,8 @@ export type ClientMessage =
   | { type: 'CREATE_ROOM'; playerName: string }
   | { type: 'JOIN_ROOM'; roomCode: string; playerName: string; asSpectator?: boolean }
   | { type: 'START_ROOM_MATCH' }
-  | { type: 'LEAVE_ROOM' };
+  | { type: 'LEAVE_ROOM' }
+  | { type: 'SURRENDER' };
 
 // Server -> Client Action Payloads
 export type ServerMessage =
